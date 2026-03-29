@@ -1,133 +1,156 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+// Created file from chatgpt
+import { useState } from "react";
 
-function App() {
-  const [count, setCount] = useState(0)
-  const [msg, setMsg] = useState("Hello")
+export default function App() {
+  const [form, setForm] = useState({
+    userId: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    passwordHash: "",
+  });
 
-  const handleClick = async () => {
-    const res = await fetch("/api/test");
-    const data = await res.json();
-    setMsg(data.message);
+  const [message, setMessage] = useState("");
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
+    });
   };
 
+  const handleCreate = async () => {
+  try {
+    const res = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMessage(data.error || "Failed to create user");
+      return;
+    }
+
+    setMessage(data.message || "User created!");
+  } catch (err) {
+    setMessage("Network or server error");
+  }
+};
+
+  const handleUpdate = async () => {
+  try {
+    const res = await fetch(`/api/users/${form.userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMessage(data.error || "Failed to update user");
+      return;
+    }
+
+    setMessage(data.message || "User updated!");
+  } catch (err) {
+    setMessage("Network or server error");
+  }
+};
+
+  const handleDelete = async () => {
+  try {
+    const res = await fetch(`/api/users/${form.userId}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMessage(data.error || "Failed to delete user");
+      return;
+    }
+
+    setMessage(data.message || "User deleted!");
+  } catch (err) {
+    setMessage("Network or server error");
+  }
+};
+
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >  
-        </button>
-        Count is {count}
+    <div style={styles.container}>
+      <h2>User Manager</h2>
 
-        <button onClick={handleClick}>Click me</button>
+      <input
+        name="userId"
+        placeholder="User ID"
+        value={form.userId}
+        onChange={handleChange}
+        style={styles.input}
+      />
 
-        Message is {msg}
+      <input
+        name="firstName"
+        placeholder="First Name"
+        value={form.firstName}
+        onChange={handleChange}
+        style={styles.input}
+      />
 
-      </section>
+      <input
+        name="lastName"
+        placeholder="Last Name"
+        value={form.lastName}
+        onChange={handleChange}
+        style={styles.input}
+      />
 
-      <div className="ticks"></div>
+      <input
+        name="email"
+        placeholder="Email"
+        value={form.email}
+        onChange={handleChange}
+        style={styles.input}
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      <input
+        name="passwordHash"
+        placeholder="Password Hash"
+        value={form.passwordHash}
+        onChange={handleChange}
+        style={styles.input}
+      />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <div style={styles.buttonGroup}>
+        <button onClick={handleCreate}>Create</button>
+        <button onClick={handleUpdate}>Update</button>
+        <button onClick={handleDelete}>Delete</button>
+      </div>
+
+      {message && <p>{message}</p>}
+    </div>
+  );
 }
 
-export default App
+const styles = {
+  container: {
+    maxWidth: "400px",
+    margin: "2rem auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: "10px",
+    fontFamily: "Arial",
+  },
+  input: {
+    padding: "10px",
+    fontSize: "16px",
+  },
+  buttonGroup: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: "10px",
+  },
+};

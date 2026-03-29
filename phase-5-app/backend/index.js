@@ -26,13 +26,134 @@ app.get("/api/app_users", async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to connect to db" });
+    res.status(500).json({ error: "Failed to" });
   }
 });
 
-// Test route
-app.get("/api/test", (req, res) => {
-  res.json({ message: "Backend is working!" });
+/**
+ * CREATE USER
+ */
+app.post("/api/users", async (req, res) => {
+  const { userId, firstName, lastName, email, passwordHash } = req.body;
+
+  try {
+    await pool.query(
+      "INSERT INTO app_user (userId, fname, lname, email, passwordHash) VALUES (?, ?, ?, ?, ?)",
+      [userId, firstName, lastName, email, passwordHash]
+    );
+
+    res.json({ message: "User created" });
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        error: "User with this ID already exists",
+      });
+    }
+
+    res.status(500).json({
+      error: "Failed to create user",
+      details: err.message,
+    });
+  }
+});
+
+/**
+ * UPDATE USER
+ */
+app.put("/api/users/:id", async (req, res) => {
+  const { id } = req.params;
+  const { firstName, lastName, email, passwordHash } = req.body;
+
+  try {
+    // Build dynamic fields
+    const fields = [];
+    const values = [];
+
+    if (firstName) {
+      fields.push("fname = ?");
+      values.push(firstName);
+    }
+
+    if (lastName) {
+      fields.push("lname = ?");
+      values.push(lastName);
+    }
+
+    if (email) {
+      fields.push("email = ?");
+      values.push(email);
+    }
+
+    if (passwordHash) {
+      fields.push("passwordHash = ?");
+      values.push(passwordHash);
+    }
+
+    // If nothing to update
+    if (fields.length === 0) {
+      return res.status(400).json({
+        error: "No fields provided to update",
+      });
+    }
+
+    // Add ID for WHERE clause
+    values.push(id);
+
+    const query = `
+      UPDATE app_user
+      SET ${fields.join(", ")}
+      WHERE userId = ?
+    `;
+
+    const [result] = await pool.query(query, values);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "User not found (cannot update)",
+      });
+    }
+
+    res.json({ message: "User updated" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to update user",
+      details: err.message,
+    });
+  }
+});
+
+
+/**
+ * DELETE USER
+ */
+app.delete("/api/users/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await pool.query(
+      "DELETE FROM app_user WHERE userId = ?",
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "User not found (cannot delete)",
+      });
+    }
+
+    res.json({ message: "User deleted" });
+  } catch (err) {
+    console.error(err);
+
+    res.status(500).json({
+      error: "Failed to delete user",
+      details: err.message,
+    });
+  }
 });
 
 app.listen(5000, () => {
