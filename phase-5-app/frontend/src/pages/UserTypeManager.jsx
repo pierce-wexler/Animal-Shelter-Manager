@@ -1,24 +1,19 @@
-// File generated from chatgpt
 import { useState } from "react";
+import "./Manager.css";
 
 export default function UserTypeManager() {
   const [type, setType] = useState("adopter");
-
   const [form, setForm] = useState({
     userId: "",
     qualificationNotes: "",
     blacklistFlag: "",
     supervisor: "",
   });
-
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
   const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const endpointMap = {
@@ -27,54 +22,20 @@ export default function UserTypeManager() {
     volunteer: "/api/volunteers",
   };
 
-  // CREATE / UPDATE helper
-  const sendRequest = async (method) => {
+  const handleAction = async (method) => {
+    const url = `${endpointMap[type]}${method !== "POST" ? `/${form.userId}` : ""}`;
     try {
-      const res = await fetch(
-        `${endpointMap[type]}/${method === "PUT" ? form.userId : ""}`,
-        {
-          method,
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        }
-      );
+      const options = {
+        method,
+        headers: { "Content-Type": "application/json" },
+      };
+      if (method !== "DELETE") options.body = JSON.stringify(form);
 
+      const res = await fetch(url, options);
       const data = await res.json();
 
-      if (!res.ok) {
-        setIsError(true);
-        setMessage(data.error);
-        return;
-      }
-
-      setIsError(false);
-      setMessage(data.message || "Success");
-    } catch {
-      setIsError(true);
-      setMessage("Network error");
-    }
-  };
-
-  const handleCreate = () => sendRequest("POST");
-  const handleUpdate = () => sendRequest("PUT");
-
-  const handleDelete = async () => {
-    try {
-      const res = await fetch(
-        `${endpointMap[type]}/${form.userId}`,
-        { method: "DELETE" }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setIsError(true);
-        setMessage(data.error);
-        return;
-      }
-
-      setIsError(false);
-      setMessage("Deleted successfully");
+      setIsError(!res.ok);
+      setMessage(data.message || data.error || "Action Successful");
     } catch {
       setIsError(true);
       setMessage("Network error");
@@ -82,88 +43,66 @@ export default function UserTypeManager() {
   };
 
   return (
-    <div style={styles.container}>
-      <h2>User Type Manager</h2>
+    <div className="manager-card">
+      <h2 className="manager-title">Role Management</h2>
 
-      {/* TYPE SELECT */}
-      <select value={type} onChange={(e) => setType(e.target.value)}>
-        <option value="adopter">Adopter</option>
-        <option value="staff">Staff</option>
-        <option value="volunteer">Volunteer</option>
-      </select>
+      <div className="form-container">
+        <label className="input-label">Select User Type</label>
+        <select className="custom-input" value={type} onChange={(e) => setType(e.target.value)}>
+          <option value="adopter">Adopter</option>
+          <option value="staff">Staff</option>
+          <option value="volunteer">Volunteer</option>
+        </select>
 
-      {/* COMMON FIELD */}
-      <input
-        name="userId"
-        placeholder="User ID"
-        value={form.userId}
-        onChange={handleChange}
-        style={styles.input}
-      />
-
-      {/* ADOPTER FIELDS */}
-      {type === "adopter" && (
-        <>
-          <input
-            name="qualificationNotes"
-            placeholder="Qualification Notes"
-            value={form.qualificationNotes}
-            onChange={handleChange}
-            style={styles.input}
-          />
-
-          <input
-            name="blacklistFlag"
-            placeholder="Blacklist Flag (0 or 1)"
-            value={form.blacklistFlag}
-            onChange={handleChange}
-            style={styles.input}
-          />
-        </>
-      )}
-
-      {/* STAFF + VOLUNTEER */}
-      {(type === "staff" || type === "volunteer") && (
+        <label className="input-label">User ID Reference</label>
         <input
-          name="supervisor"
-          placeholder="Supervisor User ID"
-          value={form.supervisor}
+          name="userId"
+          placeholder="User ID"
+          value={form.userId}
           onChange={handleChange}
-          style={styles.input}
+          className="custom-input"
         />
-      )}
 
-      {/* BUTTONS */}
-      <div style={styles.buttonGroup}>
-        <button onClick={handleCreate}>Create</button>
-        <button onClick={handleUpdate}>Update</button>
-        <button onClick={handleDelete}>Delete</button>
+        <label className="input-label">Role Specific Details</label>
+        {type === "adopter" ? (
+          <>
+            <input
+              name="qualificationNotes"
+              placeholder="Qualification Notes"
+              value={form.qualificationNotes}
+              onChange={handleChange}
+              className="custom-input"
+            />
+            <input
+              name="blacklistFlag"
+              placeholder="Blacklist Flag (0 or 1)"
+              value={form.blacklistFlag}
+              onChange={handleChange}
+              className="custom-input"
+            />
+          </>
+        ) : (
+          <input
+            name="supervisor"
+            placeholder="Supervisor User ID"
+            value={form.supervisor}
+            onChange={handleChange}
+            className="custom-input"
+          />
+        )}
       </div>
 
-      <p style={{ color: isError ? "red" : "green" }}>{message}</p>
+      <div className="button-group">
+        <button onClick={() => handleAction("POST")} className="btn btn-create">Create</button>
+        <button onClick={() => handleAction("PUT")} className="btn btn-update">Update</button>
+        <button onClick={() => handleAction("DELETE")} className="btn btn-delete">Delete</button>
+      </div>
+
+      {message && (
+        <div className={`status-message ${isError ? "error" : "success"}`}>
+          {message}
+        </div>
+      )}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    maxWidth: "400px",
-    margin: "20px",
-  },
-
-  input: {
-    padding: "8px",
-  },
-
-  buttonGroup: {
-    display: "flex",
-    gap: "10px",
-  },
-
-  button: {
-    padding: "8px",
-  },
-};

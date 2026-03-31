@@ -1,5 +1,5 @@
-// Created file from chatgpt
 import { useState } from "react";
+import "./Manager.css"; // We will create this file below
 
 export default function UserManager() {
   const [form, setForm] = useState({
@@ -11,149 +11,92 @@ export default function UserManager() {
   });
 
   const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false);
 
   const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleCreate = async () => {
-  try {
-    const res = await fetch("/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+  const handleAction = async (method, url) => {
+    try {
+      const options = {
+        method,
+        headers: { "Content-Type": "application/json" },
+      };
+      if (method !== "DELETE") options.body = JSON.stringify(form);
 
-    const data = await res.json();
+      const res = await fetch(url, options);
+      const data = await res.json();
 
-    if (!res.ok) {
-      setMessage(data.error || "Failed to create user");
-      return;
+      setIsError(!res.ok);
+      setMessage(data.message || data.error || "Success!");
+    } catch (err) {
+      setIsError(true);
+      setMessage("Network or server error");
     }
-
-    setMessage(data.message || "User created!");
-  } catch (err) {
-    setMessage("Network or server error");
-  }
-};
-
-  const handleUpdate = async () => {
-  try {
-    const res = await fetch(`/api/users/${form.userId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setMessage(data.error || "Failed to update user");
-      return;
-    }
-
-    setMessage(data.message || "User updated!");
-  } catch (err) {
-    setMessage("Network or server error");
-  }
-};
-
-  const handleDelete = async () => {
-  try {
-    const res = await fetch(`/api/users/${form.userId}`, {
-      method: "DELETE",
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setMessage(data.error || "Failed to delete user");
-      return;
-    }
-
-    setMessage(data.message || "User deleted!");
-  } catch (err) {
-    setMessage("Network or server error");
-  }
-};
+  };
 
   return (
-    <div style={styles.container}>
-      <h2>User Manager</h2>
+    <div className="manager-card">
+      <h2 className="manager-title">User Manager</h2>
 
-      <input
-        name="userId"
-        placeholder="User ID"
-        value={form.userId}
-        onChange={handleChange}
-        style={styles.input}
-      />
+      <div className="form-container">
+        <label className="input-label">User Identification</label>
+        <input
+          name="userId"
+          placeholder="User ID (Required for Update/Delete)"
+          value={form.userId}
+          onChange={handleChange}
+          className="custom-input"
+        />
 
-      <input
-        name="firstName"
-        placeholder="First Name"
-        value={form.firstName}
-        onChange={handleChange}
-        style={styles.input}
-      />
+        <label className="input-label">Personal Information</label>
+        <div className="input-row">
+          <input
+            name="firstName"
+            placeholder="First Name"
+            value={form.firstName}
+            onChange={handleChange}
+            className="custom-input"
+          />
+          <input
+            name="lastName"
+            placeholder="Last Name"
+            value={form.lastName}
+            onChange={handleChange}
+            className="custom-input"
+          />
+        </div>
 
-      <input
-        name="lastName"
-        placeholder="Last Name"
-        value={form.lastName}
-        onChange={handleChange}
-        style={styles.input}
-      />
+        <input
+          name="email"
+          placeholder="Email Address"
+          value={form.email}
+          onChange={handleChange}
+          className="custom-input"
+        />
 
-      <input
-        name="email"
-        placeholder="Email"
-        value={form.email}
-        onChange={handleChange}
-        style={styles.input}
-      />
-
-      <input
-        name="passwordHash"
-        placeholder="Password Hash"
-        value={form.passwordHash}
-        onChange={handleChange}
-        style={styles.input}
-      />
-
-      <div style={styles.buttonGroup}>
-        <button onClick={handleCreate}>Create</button>
-        <button onClick={handleUpdate}>Update</button>
-        <button onClick={handleDelete}>Delete</button>
+        <input
+          name="passwordHash"
+          type="password"
+          placeholder="Password"
+          value={form.passwordHash}
+          onChange={handleChange}
+          className="custom-input"
+        />
       </div>
 
-      {message && <p>{message}</p>}
+      <div className="button-group">
+        <button onClick={() => handleAction("POST", "/api/users")} className="btn btn-create">Create</button>
+        <button onClick={() => handleAction("PUT", `/api/users/${form.userId}`)} className="btn btn-update">Update</button>
+        <button onClick={() => handleAction("DELETE", `/api/users/${form.userId}`)} className="btn btn-delete">Delete</button>
+      </div>
+
+      {message && (
+        <div className={`status-message ${isError ? "error" : "success"}`}>
+          {message}
+        </div>
+      )}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    maxWidth: "400px",
-    margin: "20px",
-  },
-
-  input: {
-    padding: "8px",
-  },
-
-  buttonGroup: {
-    display: "flex",
-    gap: "10px",
-  },
-
-  button: {
-    padding: "8px",
-  },
-};
