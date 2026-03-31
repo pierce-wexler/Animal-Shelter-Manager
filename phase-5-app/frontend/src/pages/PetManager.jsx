@@ -1,6 +1,9 @@
 import { useState } from "react";
 import "./Manager.css";
 
+// Define the backend location
+const BASE_URL = "http://localhost:5000";
+
 export default function PetManager() {
   // --- PET STATE ---
   const [petForm, setPetForm] = useState({
@@ -34,38 +37,63 @@ export default function PetManager() {
   const handleKennelChange = (e) => setKennelForm({ ...kennelForm, [e.target.name]: e.target.value });
 
   const handlePetAction = async (method) => {
-    const url = `/api/pets${method !== "POST" ? `/${petForm.petId}` : ""}`;
+    // UPDATED: Added BASE_URL to the request path
+    const url = `${BASE_URL}/api/pets${method !== "POST" ? `/${petForm.petId}` : ""}`;
+    
     try {
       const options = {
         method,
         headers: { "Content-Type": "application/json" },
       };
-      if (method !== "DELETE") options.body = JSON.stringify(petForm);
+      
+      // Don't send a body for DELETE requests
+      if (method !== "DELETE") {
+        options.body = JSON.stringify(petForm);
+      }
+
       const res = await fetch(url, options);
       const data = await res.json();
-      setPetIsError(!res.ok);
-      setPetMessage(data.message || data.error || "Pet operation successful");
-    } catch {
+
+      if (!res.ok) {
+        setPetIsError(true);
+        setPetMessage(data.error || "Operation failed");
+      } else {
+        setPetIsError(false);
+        setPetMessage(data.message || "Pet operation successful");
+      }
+    } catch (err) {
       setPetIsError(true);
-      setPetMessage("Network error");
+      setPetMessage("Network error: Ensure backend is running on port 5000");
     }
   };
 
   const handleKennelAction = async (method) => {
-    const url = `/api/kennels${method !== "POST" ? `/${kennelForm.kennelId}` : ""}`;
+    // UPDATED: Added BASE_URL to the request path
+    const url = `${BASE_URL}/api/kennels${method !== "POST" ? `/${kennelForm.kennelId}` : ""}`;
+    
     try {
       const options = {
         method,
         headers: { "Content-Type": "application/json" },
       };
-      if (method !== "DELETE") options.body = JSON.stringify(kennelForm);
+
+      if (method !== "DELETE") {
+        options.body = JSON.stringify(kennelForm);
+      }
+
       const res = await fetch(url, options);
       const data = await res.json();
-      setKennelIsError(!res.ok);
-      setKennelMessage(data.message || data.error || "Kennel operation successful");
-    } catch {
+
+      if (!res.ok) {
+        setKennelIsError(true);
+        setKennelMessage(data.error || "Operation failed");
+      } else {
+        setKennelIsError(false);
+        setKennelMessage(data.message || "Kennel operation successful");
+      }
+    } catch (err) {
       setKennelIsError(true);
-      setKennelMessage("Network error");
+      setKennelMessage("Network error: Ensure backend is running on port 5000");
     }
   };
 

@@ -11,12 +11,14 @@ export default function RecordManager() {
     // Medical specific
     institution: "",
     vet: "",
-    // Foster specific
-    status: "",
-    fosterEndDate: "",
-    // Adoption specific
+    // Foster specific (Updated to match backend)
+    fosterParentId: "", 
+    startDate: "",
+    endDate: "",
+    // Adoption specific (Updated to match backend)
     adopterId: "",
-    staffId: ""
+    adoptionDate: "",
+    feePaid: ""
   });
 
   const [message, setMessage] = useState("");
@@ -33,18 +35,24 @@ export default function RecordManager() {
   };
 
   const handleAction = async (method) => {
-    // For POST, we hit the base endpoint. For PUT/DELETE, we append the ID.
-    const url = `${endpointMap[recordType]}${method !== "POST" ? `/${form.recordId}` : ""}`;
+    // 1. Determine the URL
+    // If DELETE, always use the master record route.
+    // If PUT/POST, use the specific subclass route.
+    let url = "";
+    if (method === "DELETE") {
+      url = `/api/records/${form.recordId}`;
+    } else {
+      url = `${endpointMap[recordType]}${method === "PUT" ? `/${form.recordId}` : ""}`;
+    }
     
     try {
       const options = {
         method,
         headers: { "Content-Type": "application/json" },
       };
+      
       if (method !== "DELETE") {
-        // We send the whole form; the backend should handle splitting 
-        // data between 'record' and the specific subclass table.
-        options.body = JSON.stringify({ ...form, recordType });
+        options.body = JSON.stringify(form);
       }
 
       const res = await fetch(url, options);
@@ -72,14 +80,15 @@ export default function RecordManager() {
 
         <label className="input-label">Base Information</label>
         <div className="input-row">
-          <input name="recordId" placeholder="Record ID" value={form.recordId} onChange={handleChange} className="custom-input" />
+          <input name="recordId" placeholder="Record ID (For Update/Delete)" value={form.recordId} onChange={handleChange} className="custom-input" />
           <input name="petId" placeholder="Pet ID" value={form.petId} onChange={handleChange} className="custom-input" />
         </div>
         
-        <input name="dateOfRecord" type="datetime-local" value={form.dateOfRecord} onChange={handleChange} className="custom-input" />
-        <textarea name="notes" placeholder="Notes/Observations" value={form.notes} onChange={handleChange} className="custom-input" style={{ height: '80px' }} />
+        <label className="input-label" style={{fontSize: '11px'}}>Date of Entry</label>
+        <input name="dateOfRecord" type="date" value={form.dateOfRecord} onChange={handleChange} className="custom-input" />
+        <textarea name="notes" placeholder="Notes/Observations" value={form.notes} onChange={handleChange} className="custom-input" style={{ height: '60px' }} />
 
-        <label className="input-label">{recordType.toUpperCase()} Specific Details</label>
+        <label className="input-label">{recordType.toUpperCase()} Details</label>
         
         {/* MEDICAL FIELDS */}
         {recordType === "medical" && (
@@ -92,18 +101,35 @@ export default function RecordManager() {
         {/* FOSTER FIELDS */}
         {recordType === "foster" && (
           <>
-            <input name="status" placeholder="Foster Status (e.g. Active)" value={form.status} onChange={handleChange} className="custom-input" />
-            <label className="input-label" style={{fontSize: '10px'}}>Foster End Date</label>
-            <input name="fosterEndDate" type="datetime-local" value={form.fosterEndDate} onChange={handleChange} className="custom-input" />
+            <input name="fosterParentId" placeholder="Foster Parent ID" value={form.fosterParentId} onChange={handleChange} className="custom-input" />
+            <div className="input-row">
+              <div style={{flex:1}}>
+                <label className="input-label" style={{fontSize: '10px'}}>Start Date</label>
+                <input name="startDate" type="date" value={form.startDate} onChange={handleChange} className="custom-input" />
+              </div>
+              <div style={{flex:1}}>
+                <label className="input-label" style={{fontSize: '10px'}}>End Date</label>
+                <input name="endDate" type="date" value={form.endDate} onChange={handleChange} className="custom-input" />
+              </div>
+            </div>
           </>
         )}
 
         {/* ADOPTION FIELDS */}
         {recordType === "adoption" && (
-          <div className="input-row">
+          <>
             <input name="adopterId" placeholder="Adopter ID" value={form.adopterId} onChange={handleChange} className="custom-input" />
-            <input name="staffId" placeholder="Staff ID" value={form.staffId} onChange={handleChange} className="custom-input" />
-          </div>
+            <div className="input-row">
+              <div style={{flex:1}}>
+                <label className="input-label" style={{fontSize: '10px'}}>Adoption Date</label>
+                <input name="adoptionDate" type="date" value={form.adoptionDate} onChange={handleChange} className="custom-input" />
+              </div>
+              <div style={{flex:1}}>
+                <label className="input-label" style={{fontSize: '10px'}}>Fee Paid ($)</label>
+                <input name="feePaid" type="number" placeholder="0.00" value={form.feePaid} onChange={handleChange} className="custom-input" />
+              </div>
+            </div>
+          </>
         )}
       </div>
 

@@ -2,7 +2,8 @@ import { useState } from "react";
 import UserManager from "./pages/UserManager";
 import UserTypeManager from "./pages/UserTypeManager";
 import RecordManager from "./pages/RecordManager";
-import PetManager from "./pages/PetManager"; // Your partner's new page
+import PetManager from "./pages/PetManager";
+import EventManager from "./pages/EventManager"; // New import
 import "./index.css"; 
 
 export default function App() {
@@ -14,35 +15,16 @@ export default function App() {
       {/* HEADER AREA */}
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
         <h1 style={{ color: '#1a202c', margin: '0' }}>Admin Dashboard</h1>
-        <p style={{ color: '#718096' }}>Manage users, pets, and shelter operations.</p>
+        <p style={{ color: '#718096' }}>Shelter Management: Users, Pets, Records, and Events.</p>
       </div>
 
       {/* TAB NAVIGATION */}
       <div style={tabStyles.nav}>
-        <button 
-          style={activeTab === "users" ? tabStyles.activeBtn : tabStyles.btn}
-          onClick={() => setActiveTab("users")}
-        >
-          Users
-        </button>
-        <button 
-          style={activeTab === "roles" ? tabStyles.activeBtn : tabStyles.btn}
-          onClick={() => setActiveTab("roles")}
-        >
-          Roles
-        </button>
-        <button 
-          style={activeTab === "pets" ? tabStyles.activeBtn : tabStyles.btn}
-          onClick={() => setActiveTab("pets")}
-        >
-          Pets
-        </button>
-        <button 
-          style={activeTab === "records" ? tabStyles.activeBtn : tabStyles.btn}
-          onClick={() => setActiveTab("records")}
-        >
-          Pet Records
-        </button>
+        <button style={activeTab === "users" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("users")}>Users</button>
+        <button style={activeTab === "roles" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("roles")}>Roles</button>
+        <button style={activeTab === "pets" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("pets")}>Pets/Kennels</button>
+        <button style={activeTab === "records" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("records")}>Pet Records</button>
+        <button style={activeTab === "events" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("events")}>Events</button>
       </div>
 
       {/* CONTENT AREA */}
@@ -51,6 +33,7 @@ export default function App() {
         {activeTab === "roles" && <UserTypeManager />}
         {activeTab === "pets" && <PetManager />}
         {activeTab === "records" && <RecordManager />}
+        {activeTab === "events" && <EventManager />}
       </div>
     </div>
   );
