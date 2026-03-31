@@ -398,6 +398,276 @@ app.delete("/api/volunteers/:id", async (req, res) => {
   }
 });
 
+app.post("/api/pets", async (req, res) => {
+  console.log("=== CREATE PET HIT ===");
+
+  try {
+    console.log("BODY:", req.body);
+
+    const {
+      petId,
+      name,
+      dateOfBirth,
+      sex,
+      kennelId,
+      breed,
+      behavioralNotes,
+      dateOfAdmittance,
+      specialNotes,
+      status,
+    } = req.body;
+
+    const query = `
+      INSERT INTO pet 
+      (petId, name, dateOfBirth, age, sex, kennelId, breed, behavioralNotes, dateOfAdmittance, daysInShelter, specialNotes, status)
+      VALUES (?, ?, ?, TIMESTAMPDIFF(YEAR, ?, CURDATE()), ?, ?, ?, ?, ?, DATEDIFF(CURDATE(), ?), ?, ?)
+    `;
+
+    const values = [
+      petId,
+      name,
+      dateOfBirth,
+      dateOfBirth,
+      sex,
+      kennelId,
+      breed,
+      behavioralNotes,
+      dateOfAdmittance,
+      dateOfAdmittance,
+      specialNotes,
+      status,
+    ];
+
+    console.log("QUERY:", query);
+    console.log("VALUES:", values);
+
+    const result = await pool.query(query, values);
+
+    console.log("RESULT:", result);
+
+    res.json({ message: "Pet created" });
+
+  } catch (err) {
+    console.error("🔥 ERROR CAUGHT:", err);
+
+    res.status(500).json({
+      error: err.message || "Unknown error",
+    });
+  }
+});
+
+app.put("/api/pets/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    name,
+    dateOfBirth,
+    age,
+    sex,
+    kennelId,
+    breed,
+    behavioralNotes,
+    dateOfAdmittance,
+    daysInShelter,
+    specialNotes,
+    status,
+  } = req.body;
+
+  try {
+    const fields = [];
+    const values = [];
+
+    if (name) {
+      fields.push("name = ?");
+      values.push(name);
+    }
+
+    if (dateOfBirth) {
+      fields.push("dateOfBirth = ?");
+      values.push(dateOfBirth);
+
+      fields.push("age = TIMESTAMPDIFF(YEAR, ?, CURDATE())");
+      values.push(dateOfBirth);
+    }
+
+    if (age) {
+      fields.push("age = ?");
+      values.push(age);
+    }
+
+    if (sex) {
+      fields.push("sex = ?");
+      values.push(sex);
+    }
+
+    if (kennelId) {
+      fields.push("kennelId = ?");
+      values.push(kennelId);
+    }
+
+    if (breed) {
+      fields.push("breed = ?");
+      values.push(breed);
+    }
+
+    if (behavioralNotes) {
+      fields.push("behavioralNotes = ?");
+      values.push(behavioralNotes);
+    }
+
+    if (dateOfAdmittance) {
+      fields.push("dateOfAdmittance = ?");
+      values.push(dateOfAdmittance);
+
+      fields.push("daysInShelter = DATEDIFF(CURDATE(), ?)");
+      values.push(dateOfAdmittance);
+    }
+
+    if (specialNotes) {
+      fields.push("specialNotes = ?");
+      values.push(specialNotes);
+    }
+
+    if (status) {
+      fields.push("status = ?");
+      values.push(status);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: "No fields provided" });
+    }
+
+    values.push(id);
+
+    const [result] = await pool.query(
+      `UPDATE pet SET ${fields.join(", ")} WHERE petId = ?`,
+      values
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Pet not found" });
+    }
+
+    res.json({ message: "Pet updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update pet" });
+  }
+});
+
+app.delete("/api/pets/:id", async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      "DELETE FROM pet WHERE petId = ?",
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Pet not found" });
+    }
+
+    res.json({ message: "Pet deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete pet" });
+  }
+});
+
+app.post("/api/kennels", async (req, res) => {
+  const { kennelId, roomNo, occupationStatus } = req.body;
+
+  try {
+    await pool.query(
+      "INSERT INTO kennel (kennelId, roomNo, occupationStatus) VALUES (?, ?, ?)",
+      [kennelId, roomNo, occupationStatus]
+    );
+
+    res.json({ message: "Kennel created" });
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        error: "Kennel with this ID already exists",
+      });
+    }
+
+    res.status(500).json({ error: "Failed to create kennel" });
+  }
+});
+
+app.put("/api/kennels/:id", async (req, res) => {
+  const { id } = req.params;
+  const { roomNo, occupationStatus } = req.body;
+
+  try {
+    const fields = [];
+    const values = [];
+
+    if (roomNo) {
+      fields.push("roomNo = ?");
+      values.push(roomNo);
+    }
+
+    if (occupationStatus) {
+      fields.push("occupationStatus = ?");
+      values.push(occupationStatus);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({
+        error: "No fields provided",
+      });
+    }
+
+    values.push(id);
+
+    const [result] = await pool.query(
+      `UPDATE kennel SET ${fields.join(", ")} WHERE kennelId = ?`,
+      values
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "Kennel not found",
+      });
+    }
+
+    res.json({ message: "Kennel updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update kennel" });
+  }
+});
+
+app.delete("/api/kennels/:id", async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      "DELETE FROM kennel WHERE kennelId = ?",
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "Kennel not found",
+      });
+    }
+
+    res.json({ message: "Kennel deleted" });
+  } catch (err) {
+    console.error(err);
+
+    // FK constraint (e.g., kennel used by pet)
+    if (err.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(400).json({
+        error: "Cannot delete kennel (it is assigned to a pet)",
+      });
+    }
+
+    res.status(500).json({ error: "Failed to delete kennel" });
+  }
+});
+
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
