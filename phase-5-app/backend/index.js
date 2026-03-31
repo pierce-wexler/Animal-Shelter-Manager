@@ -668,6 +668,163 @@ app.delete("/api/kennels/:id", async (req, res) => {
   }
 });
 
+app.post("/api/events", async (req, res) => {
+  const {
+    eventId,
+    eventType,
+    eventDateTime,
+    staffId,
+    volunteerId,
+    adopterId,
+    petId,
+    location,
+  } = req.body;
+
+  try {
+    const formattedDate = eventDateTime
+      ? eventDateTime.replace("T", " ") + ":00"
+      : null;
+
+    await pool.query(
+      `INSERT INTO event 
+      (eventId, eventType, eventDateTime, staffId, volunteerId, adopterId, petId, location)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        eventId,
+        eventType,
+        formattedDate,
+        staffId,
+        volunteerId || null,
+        adopterId,
+        petId,
+        location,
+      ]
+    );
+
+    res.json({ message: "Event created" });
+
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        error: "Event with this ID already exists",
+      });
+    }
+
+    if (err.code === "ER_NO_REFERENCED_ROW_2") {
+      return res.status(400).json({
+        error: "Invalid foreign key",
+      });
+    }
+
+    res.status(500).json({ error: "Failed to create event" });
+  }
+});
+
+app.put("/api/events/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    eventType,
+    eventDateTime,
+    staffId,
+    volunteerId,
+    adopterId,
+    petId,
+    location,
+  } = req.body;
+
+  try {
+    const fields = [];
+    const values = [];
+
+    if (eventType) {
+      fields.push("eventType = ?");
+      values.push(eventType);
+    }
+
+    if (eventDateTime) {
+      fields.push("eventDateTime = ?");
+      values.push(eventDateTime.replace("T", " ") + ":00");
+    }
+
+    if (staffId) {
+      fields.push("staffId = ?");
+      values.push(staffId);
+    }
+
+    if (volunteerId !== undefined) {
+      fields.push("volunteerId = ?");
+      values.push(volunteerId || null);
+    }
+
+    if (adopterId) {
+      fields.push("adopterId = ?");
+      values.push(adopterId);
+    }
+
+    if (petId) {
+      fields.push("petId = ?");
+      values.push(petId);
+    }
+
+    if (location) {
+      fields.push("location = ?");
+      values.push(location);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: "No fields provided" });
+    }
+
+    values.push(id);
+
+    const [result] = await pool.query(
+      `UPDATE event SET ${fields.join(", ")} WHERE eventId = ?`,
+      values
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
+    res.json({ message: "Event updated" });
+
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "ER_NO_REFERENCED_ROW_2") {
+      return res.status(400).json({
+        error: "Invalid foreign key",
+      });
+    }
+
+    res.status(500).json({ error: "Failed to update event" });
+  }
+});
+
+app.delete("/api/events/:id", async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      "DELETE FROM event WHERE eventId = ?",
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "Event not found",
+      });
+    }
+
+    res.json({ message: "Event deleted" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete event" });
+  }
+});
+
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });
