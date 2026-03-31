@@ -1040,6 +1040,151 @@ app.delete("/api/events/:id", async (req, res) => {
   }
 });
 
+app.post("/api/adoption-requests", async (req, res) => {
+  const {
+    requestId,
+    submitterId,
+    petId,
+    description,
+    status,
+    fufilledBy,
+    adoptionType,
+  } = req.body;
+
+  try {
+    await pool.query(
+      `INSERT INTO adoption_request
+      (requestId, submitterId, petId, description, status, fufilledBy, adoptionType)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        requestId,
+        submitterId,
+        petId,
+        description,
+        status,
+        fufilledBy || null,
+        adoptionType,
+      ]
+    );
+
+    res.json({ message: "Request created" });
+
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        error: "Request with this ID already exists",
+      });
+    }
+
+    if (err.code === "ER_NO_REFERENCED_ROW_2") {
+      return res.status(400).json({
+        error: "Invalid foreign key (user or pet)",
+      });
+    }
+
+    res.status(500).json({ error: "Failed to create request" });
+  }
+});
+
+app.put("/api/adoption-requests/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    submitterId,
+    petId,
+    description,
+    status,
+    fufilledBy,
+    adoptionType,
+  } = req.body;
+
+  try {
+    const fields = [];
+    const values = [];
+
+    if (submitterId) {
+      fields.push("submitterId = ?");
+      values.push(submitterId);
+    }
+
+    if (petId) {
+      fields.push("petId = ?");
+      values.push(petId);
+    }
+
+    if (description) {
+      fields.push("description = ?");
+      values.push(description);
+    }
+
+    if (status) {
+      fields.push("status = ?");
+      values.push(status);
+    }
+
+    if (fufilledBy !== undefined) {
+      fields.push("fufilledBy = ?");
+      values.push(fufilledBy || null);
+    }
+
+    if (adoptionType) {
+      fields.push("adoptionType = ?");
+      values.push(adoptionType);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: "No fields provided" });
+    }
+
+    values.push(id);
+
+    const [result] = await pool.query(
+      `UPDATE adoption_request SET ${fields.join(", ")} WHERE requestId = ?`,
+      values
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    res.json({ message: "Request updated" });
+
+  } catch (err) {
+    console.error(err);
+
+    if (err.code === "ER_NO_REFERENCED_ROW_2") {
+      return res.status(400).json({
+        error: "Invalid foreign key",
+      });
+    }
+
+    res.status(500).json({ error: "Failed to update request" });
+  }
+});
+
+app.delete("/api/adoption-requests/:id", async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      "DELETE FROM adoption_request WHERE requestId = ?",
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        error: "Request not found",
+      });
+    }
+
+    res.json({ message: "Request deleted" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete request" });
+  }
+});
+
 app.listen(5000, () => {
   console.log("Server running on port 5000");
 });

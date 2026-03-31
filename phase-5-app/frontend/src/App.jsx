@@ -3,7 +3,8 @@ import UserManager from "./pages/UserManager";
 import UserTypeManager from "./pages/UserTypeManager";
 import RecordManager from "./pages/RecordManager";
 import PetManager from "./pages/PetManager";
-import EventManager from "./pages/EventManager"; // New import
+import EventManager from "./pages/EventManager";
+import AdoptionRequestManager from "./pages/AdoptionRequestManager";
 import "./index.css"; 
 
 export default function App() {
@@ -25,6 +26,8 @@ export default function App() {
         <button style={activeTab === "pets" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("pets")}>Pets/Kennels</button>
         <button style={activeTab === "records" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("records")}>Pet Records</button>
         <button style={activeTab === "events" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("events")}>Events</button>
+        <button style={activeTab === "requests" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("requests")}>Adoption Requests</button>
+
       </div>
 
       {/* CONTENT AREA */}
@@ -34,6 +37,7 @@ export default function App() {
         {activeTab === "pets" && <PetManager />}
         {activeTab === "records" && <RecordManager />}
         {activeTab === "events" && <EventManager />}
+        {activeTab === "requests" && <AdoptionRequestManager />}
       </div>
     </div>
   );
