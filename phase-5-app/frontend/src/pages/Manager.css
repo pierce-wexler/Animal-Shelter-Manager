@@ -99,3 +99,22 @@
   color: #991b1b;
   border: 1px solid #fca5a5;
 }
+
+.multi-manager-container {
+  display: flex;
+  flex-direction: row;      /* Side-by-side */
+  flex-wrap: wrap;         /* Stack on small screens */
+  justify-content: center; /* Center them on the page */
+  align-items: flex-start; /* Align tops of cards */
+  gap: 30px;               /* Space between cards */
+  padding: 20px;
+  max-width: 1200px;       /* Keeps them from spreading too far */
+  margin: 0 auto;          /* Centers the whole container */
+}
+
+.multi-manager-container .manager-card {
+  margin: 0;               /* Remove the auto margins for side-by-side */
+  flex: 1;                 /* Allow them to grow/shrink equally */
+  min-width: 350px;        /* Don't let them get too skinny */
+  max-width: 450px;        /* Don't let them get too wide */
+}

@@ -1,19 +1,20 @@
-import { useState } from "react"; // Added this!
+import { useState } from "react"; 
 import UserManager from "./pages/UserManager";
 import UserTypeManager from "./pages/UserTypeManager";
 import RecordManager from "./pages/RecordManager";
+import PetManager from "./pages/PetManager"; // Your partner's new page
 import "./index.css"; 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("users");
 
-return (
+  return (
     <div style={{ backgroundColor: "#f0f2f5", minHeight: "100vh", padding: "20px" }}>
       
       {/* HEADER AREA */}
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
         <h1 style={{ color: '#1a202c', margin: '0' }}>Admin Dashboard</h1>
-        <p style={{ color: '#718096' }}>Manage users, roles, and pet records in one place.</p>
+        <p style={{ color: '#718096' }}>Manage users, pets, and shelter operations.</p>
       </div>
 
       {/* TAB NAVIGATION */}
@@ -22,15 +23,20 @@ return (
           style={activeTab === "users" ? tabStyles.activeBtn : tabStyles.btn}
           onClick={() => setActiveTab("users")}
         >
-          Basic Info
+          Users
         </button>
         <button 
           style={activeTab === "roles" ? tabStyles.activeBtn : tabStyles.btn}
           onClick={() => setActiveTab("roles")}
         >
-          User Roles
+          Roles
         </button>
-        {/* NEW TAB BUTTON */}
+        <button 
+          style={activeTab === "pets" ? tabStyles.activeBtn : tabStyles.btn}
+          onClick={() => setActiveTab("pets")}
+        >
+          Pets
+        </button>
         <button 
           style={activeTab === "records" ? tabStyles.activeBtn : tabStyles.btn}
           onClick={() => setActiveTab("records")}
@@ -41,9 +47,9 @@ return (
 
       {/* CONTENT AREA */}
       <div style={{ marginTop: "20px" }}>
-        {/* Logic to show only the selected component */}
         {activeTab === "users" && <UserManager />}
         {activeTab === "roles" && <UserTypeManager />}
+        {activeTab === "pets" && <PetManager />}
         {activeTab === "records" && <RecordManager />}
       </div>
     </div>
