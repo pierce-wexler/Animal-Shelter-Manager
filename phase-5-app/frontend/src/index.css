@@ -1,3 +1,4 @@
+/* File Generated via ChatGPT */ */
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -109,3 +110,14 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* body {
+  margin: 0;
+  background: black;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+input, button, select {
+  font-family: inherit;
+} */
