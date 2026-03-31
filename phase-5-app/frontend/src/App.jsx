@@ -1,18 +1,19 @@
 import { useState } from "react"; // Added this!
 import UserManager from "./pages/UserManager";
 import UserTypeManager from "./pages/UserTypeManager";
+import RecordManager from "./pages/RecordManager";
 import "./index.css"; 
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("users");
 
-  return (
+return (
     <div style={{ backgroundColor: "#f0f2f5", minHeight: "100vh", padding: "20px" }}>
       
       {/* HEADER AREA */}
       <div style={{ textAlign: 'center', marginBottom: '30px' }}>
         <h1 style={{ color: '#1a202c', margin: '0' }}>Admin Dashboard</h1>
-        <p style={{ color: '#718096' }}>Manage your users and their specific roles below.</p>
+        <p style={{ color: '#718096' }}>Manage users, roles, and pet records in one place.</p>
       </div>
 
       {/* TAB NAVIGATION */}
@@ -29,11 +30,21 @@ export default function App() {
         >
           User Roles
         </button>
+        {/* NEW TAB BUTTON */}
+        <button 
+          style={activeTab === "records" ? tabStyles.activeBtn : tabStyles.btn}
+          onClick={() => setActiveTab("records")}
+        >
+          Pet Records
+        </button>
       </div>
 
       {/* CONTENT AREA */}
       <div style={{ marginTop: "20px" }}>
-        {activeTab === "users" ? <UserManager /> : <UserTypeManager />}
+        {/* Logic to show only the selected component */}
+        {activeTab === "users" && <UserManager />}
+        {activeTab === "roles" && <UserTypeManager />}
+        {activeTab === "records" && <RecordManager />}
       </div>
     </div>
   );
