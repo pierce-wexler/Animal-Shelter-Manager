@@ -1,28 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./Manager.css";
 
 export default function RecordManager() {
   const [recordType, setRecordType] = useState("medical");
+
   const [form, setForm] = useState({
     recordId: "",
     petId: "",
     dateOfRecord: "",
+    recordType: "medical",
     notes: "",
-    // Medical specific
+
+    // Medical
     institution: "",
     vet: "",
-    // Foster specific (Updated to match backend)
-    fosterParentId: "", 
-    startDate: "",
-    endDate: "",
-    // Adoption specific (Updated to match backend)
+
+    // Adoption
     adopterId: "",
-    adoptionDate: "",
-    feePaid: ""
+    staffId: "",
+
+    // Foster
+    status: "",
+    fosterEndDate: "",
   });
 
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+
+  // Keep recordType synced with form
+  useEffect(() => {
+    setForm((prev) => ({
+      ...prev,
+      recordType: recordType,
+    }));
+  }, [recordType]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -35,22 +46,22 @@ export default function RecordManager() {
   };
 
   const handleAction = async (method) => {
-    // 1. Determine the URL
-    // If DELETE, always use the master record route.
-    // If PUT/POST, use the specific subclass route.
     let url = "";
+
     if (method === "DELETE") {
       url = `/api/records/${form.recordId}`;
     } else {
-      url = `${endpointMap[recordType]}${method === "PUT" ? `/${form.recordId}` : ""}`;
+      url = `${endpointMap[recordType]}${
+        method === "PUT" ? `/${form.recordId}` : ""
+      }`;
     }
-    
+
     try {
       const options = {
         method,
         headers: { "Content-Type": "application/json" },
       };
-      
+
       if (method !== "DELETE") {
         options.body = JSON.stringify(form);
       }
@@ -60,7 +71,7 @@ export default function RecordManager() {
 
       setIsError(!res.ok);
       setMessage(data.message || data.error || "Success");
-    } catch (err) {
+    } catch {
       setIsError(true);
       setMessage("Network error or server down");
     }
@@ -71,74 +82,169 @@ export default function RecordManager() {
       <h2 className="manager-title">Pet Record Management</h2>
 
       <div className="form-container">
+        {/* RECORD TYPE */}
         <label className="input-label">Record Category</label>
-        <select className="custom-input" value={recordType} onChange={(e) => setRecordType(e.target.value)}>
+        <select
+          className="custom-input"
+          value={recordType}
+          onChange={(e) => setRecordType(e.target.value)}
+        >
           <option value="medical">Medical Record</option>
           <option value="foster">Foster Record</option>
           <option value="adoption">Adoption Record</option>
         </select>
 
+        {/* BASE FIELDS */}
         <label className="input-label">Base Information</label>
         <div className="input-row">
-          <input name="recordId" placeholder="Record ID (For Update/Delete)" value={form.recordId} onChange={handleChange} className="custom-input" />
-          <input name="petId" placeholder="Pet ID" value={form.petId} onChange={handleChange} className="custom-input" />
+          <input
+            name="recordId"
+            placeholder="Record ID (for update/delete)"
+            value={form.recordId}
+            onChange={handleChange}
+            className="custom-input"
+          />
+          <input
+            name="petId"
+            placeholder="Pet ID"
+            value={form.petId}
+            onChange={handleChange}
+            className="custom-input"
+          />
         </div>
-        
-        <label className="input-label" style={{fontSize: '11px'}}>Date of Entry</label>
-        <input name="dateOfRecord" type="date" value={form.dateOfRecord} onChange={handleChange} className="custom-input" />
-        <textarea name="notes" placeholder="Notes/Observations" value={form.notes} onChange={handleChange} className="custom-input" style={{ height: '60px' }} />
 
-        <label className="input-label">{recordType.toUpperCase()} Details</label>
-        
-        {/* MEDICAL FIELDS */}
+        <label className="input-label" style={{ fontSize: "11px" }}>
+          Date of Record
+        </label>
+        <input
+          name="dateOfRecord"
+          type="date"
+          value={form.dateOfRecord}
+          onChange={handleChange}
+          className="custom-input"
+        />
+
+        <textarea
+          name="notes"
+          placeholder="Notes"
+          value={form.notes}
+          onChange={handleChange}
+          className="custom-input"
+          style={{ height: "60px" }}
+        />
+
+        {/* SUBCLASS SECTION */}
+        <label className="input-label">
+          {recordType.toUpperCase()} Details
+        </label>
+
+        {/* MEDICAL */}
         {recordType === "medical" && (
           <div className="input-row">
-            <input name="institution" placeholder="Clinic Name" value={form.institution} onChange={handleChange} className="custom-input" />
-            <input name="vet" placeholder="Vet Name" value={form.vet} onChange={handleChange} className="custom-input" />
+            <input
+              name="institution"
+              placeholder="Institution"
+              value={form.institution}
+              onChange={handleChange}
+              className="custom-input"
+            />
+            <input
+              name="vet"
+              placeholder="Vet"
+              value={form.vet}
+              onChange={handleChange}
+              className="custom-input"
+            />
           </div>
         )}
 
-        {/* FOSTER FIELDS */}
+        {/* FOSTER */}
         {recordType === "foster" && (
-          <>
-            <input name="fosterParentId" placeholder="Foster Parent ID" value={form.fosterParentId} onChange={handleChange} className="custom-input" />
-            <div className="input-row">
-              <div style={{flex:1}}>
-                <label className="input-label" style={{fontSize: '10px'}}>Start Date</label>
-                <input name="startDate" type="date" value={form.startDate} onChange={handleChange} className="custom-input" />
-              </div>
-              <div style={{flex:1}}>
-                <label className="input-label" style={{fontSize: '10px'}}>End Date</label>
-                <input name="endDate" type="date" value={form.endDate} onChange={handleChange} className="custom-input" />
-              </div>
-            </div>
-          </>
-        )}
+  <>
+    {/* Adoption layer (REQUIRED for foster) */}
+    <input
+      name="adopterId"
+      placeholder="Adopter ID"
+      value={form.adopterId}
+      onChange={handleChange}
+      className="custom-input"
+    />
 
-        {/* ADOPTION FIELDS */}
+    <input
+      name="staffId"
+      placeholder="Staff ID (fulfilled by)"
+      value={form.staffId}
+      onChange={handleChange}
+      className="custom-input"
+    />
+
+    {/* Foster-specific fields */}
+    <input
+      name="status"
+      placeholder="Foster Status"
+      value={form.status}
+      onChange={handleChange}
+      className="custom-input"
+    />
+
+    <label className="input-label" style={{ fontSize: "10px" }}>
+      Foster End Date
+    </label>
+    <input
+      name="fosterEndDate"
+      type="date"
+      value={form.fosterEndDate}
+      onChange={handleChange}
+      className="custom-input"
+    />
+  </>
+)}
+
+        {/* ADOPTION */}
         {recordType === "adoption" && (
           <>
-            <input name="adopterId" placeholder="Adopter ID" value={form.adopterId} onChange={handleChange} className="custom-input" />
-            <div className="input-row">
-              <div style={{flex:1}}>
-                <label className="input-label" style={{fontSize: '10px'}}>Adoption Date</label>
-                <input name="adoptionDate" type="date" value={form.adoptionDate} onChange={handleChange} className="custom-input" />
-              </div>
-              <div style={{flex:1}}>
-                <label className="input-label" style={{fontSize: '10px'}}>Fee Paid ($)</label>
-                <input name="feePaid" type="number" placeholder="0.00" value={form.feePaid} onChange={handleChange} className="custom-input" />
-              </div>
-            </div>
+            <input
+              name="adopterId"
+              placeholder="Adopter ID"
+              value={form.adopterId}
+              onChange={handleChange}
+              className="custom-input"
+            />
+
+            <input
+              name="staffId"
+              placeholder="Staff ID (fulfilled by)"
+              value={form.staffId}
+              onChange={handleChange}
+              className="custom-input"
+            />
           </>
         )}
       </div>
 
+      {/* BUTTONS */}
       <div className="button-group">
-        <button onClick={() => handleAction("POST")} className="btn btn-create">Create</button>
-        <button onClick={() => handleAction("PUT")} className="btn btn-update">Update</button>
-        <button onClick={() => handleAction("DELETE")} className="btn btn-delete">Delete</button>
+        <button
+          onClick={() => handleAction("POST")}
+          className="btn btn-create"
+        >
+          Create
+        </button>
+        <button
+          onClick={() => handleAction("PUT")}
+          className="btn btn-update"
+        >
+          Update
+        </button>
+        <button
+          onClick={() => handleAction("DELETE")}
+          className="btn btn-delete"
+        >
+          Delete
+        </button>
       </div>
 
+      {/* MESSAGE */}
       {message && (
         <div className={`status-message ${isError ? "error" : "success"}`}>
           {message}
