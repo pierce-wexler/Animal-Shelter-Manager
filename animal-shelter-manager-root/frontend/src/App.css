@@ -1,0 +1,110 @@
+/* --- GLOBAL STYLES --- */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f4f7f6;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+/* --- NAVIGATION BAR --- */
+.navbar {
+  background-color: #2c3e50;
+  padding: 1rem 2rem;
+  display: flex;
+  gap: 20px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1.1rem;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: #3498db;
+}
+
+/* --- MAIN CONTAINER --- */
+.manager-card {
+  background: white;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 30px;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.manager-card h2 {
+  margin-top: 0;
+  color: #2c3e50;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* --- INPUT FIELDS --- */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.custom-input {
+  padding: 12px 15px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  transition: border-color 0.3s;
+}
+
+.custom-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.3);
+}
+
+/* --- BUTTONS --- */
+.button-group {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.btn {
+  flex: 1; /* Makes all buttons equal width */
+  padding: 12px;
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-create { background-color: #2ecc71; }
+.btn-update { background-color: #f39c12; }
+.btn-delete { background-color: #e74c3c; }
+
+.btn:hover { opacity: 0.85; }
+
+/* --- MESSAGES --- */
+.status-message {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #e8f8f5;
+  color: #27ae60;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 500;
+}

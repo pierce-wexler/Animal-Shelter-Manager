@@ -156,6 +156,42 @@ app.delete("/api/users/:id", async (req, res) => {
   }
 });
 
+// GET ALL PETS
+app.get("/api/pets", async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM pet");
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch pets" });
+  }
+});
+
+// GET ALL RECORDS (Joined with specific types)
+app.get("/api/records", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT r.*, m.institution, m.vet, f.fosterParentId, f.startDate, f.endDate, a.adopterId, a.adoptionDate, a.feePaid
+      FROM record r
+      LEFT JOIN medical_record m ON r.recordId = m.recordId
+      LEFT JOIN foster_record f ON r.recordId = f.recordId
+      LEFT JOIN adoption_record a ON r.recordId = a.recordId
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch records" });
+  }
+});
+
+// GET ALL EVENTS
+app.get("/api/events", async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM event");
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch events" });
+  }
+});
+
 // CREATE ADOPTER
 app.post("/api/adopters", async (req, res) => {
   const { userId, qualificationNotes, blacklistFlag } = req.body;
@@ -398,61 +434,296 @@ app.delete("/api/volunteers/:id", async (req, res) => {
   }
 });
 
-app.post("/api/pets", async (req, res) => {
-  console.log("=== CREATE PET HIT ===");
+// =======================
+// MEDICAL RECORDS
+// =======================
+
+app.post("/api/medical-records", async (req, res) => {
+  const { recordId, petId, dateOfRecord, recordType, notes, institution, vet } = req.body;
+  const conn = await pool.getConnection();
 
   try {
-    console.log("BODY:", req.body);
+    await conn.beginTransaction();
 
-    const {
-      petId,
-      name,
-      dateOfBirth,
-      sex,
-      kennelId,
-      breed,
-      behavioralNotes,
-      dateOfAdmittance,
-      specialNotes,
-      status,
-    } = req.body;
+    await conn.query(
+      `INSERT INTO record (recordId, petId, dateOfRecord, recordType, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [recordId, petId, dateOfRecord, recordType, notes]
+    );
 
-    const query = `
-      INSERT INTO pet 
-      (petId, name, dateOfBirth, age, sex, kennelId, breed, behavioralNotes, dateOfAdmittance, daysInShelter, specialNotes, status)
-      VALUES (?, ?, ?, TIMESTAMPDIFF(YEAR, ?, CURDATE()), ?, ?, ?, ?, ?, DATEDIFF(CURDATE(), ?), ?, ?)
-    `;
+    await conn.query(
+      `INSERT INTO medical_record (recordId, institution, vet)
+       VALUES (?, ?, ?)`,
+      [recordId, institution, vet]
+    );
 
-    const values = [
-      petId,
-      name,
-      dateOfBirth,
-      dateOfBirth,
-      sex,
-      kennelId,
-      breed,
-      behavioralNotes,
-      dateOfAdmittance,
-      dateOfAdmittance,
-      specialNotes,
-      status,
-    ];
-
-    console.log("QUERY:", query);
-    console.log("VALUES:", values);
-
-    const result = await pool.query(query, values);
-
-    console.log("RESULT:", result);
-
-    res.json({ message: "Pet created" });
+    await conn.commit();
+    res.json({ message: "Medical record created" });
 
   } catch (err) {
-    console.error("🔥 ERROR CAUGHT:", err);
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: "Failed to create medical record" });
+  } finally {
+    conn.release();
+  }
+});
 
-    res.status(500).json({
-      error: err.message || "Unknown error",
-    });
+app.put("/api/medical-records/:id", async (req, res) => {
+  const { id } = req.params;
+  const { petId, dateOfRecord, notes, institution, vet } = req.body;
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `UPDATE record SET petId=?, dateOfRecord=?, notes=? WHERE recordId=?`,
+      [petId, dateOfRecord, notes, id]
+    );
+
+    await conn.query(
+      `UPDATE medical_record SET institution=?, vet=? WHERE recordId=?`,
+      [institution, vet, id]
+    );
+
+    await conn.commit();
+    res.json({ message: "Medical record updated" });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: "Failed to update medical record" });
+  } finally {
+    conn.release();
+  }
+});
+
+
+// =======================
+// ADOPTION RECORDS
+// =======================
+
+app.post("/api/adoption-records", async (req, res) => {
+  const { recordId, petId, dateOfRecord, recordType, notes, adopterId, staffId } = req.body;
+  const conn = await pool.getConnection();
+
+  const cleanAdopterId = adopterId === "" ? null : adopterId;
+  const cleanStaffId = staffId === "" ? null : staffId;
+
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `INSERT INTO record (recordId, petId, dateOfRecord, recordType, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [recordId, petId, dateOfRecord, recordType, notes]
+    );
+
+    await conn.query(
+      `INSERT INTO adoption_record (recordId, adopterId, staffId)
+       VALUES (?, ?, ?)`,
+      [recordId, cleanAdopterId, cleanStaffId]
+    );
+
+    await conn.commit();
+    res.json({ message: "Adoption record created" });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: "Failed to create adoption record" });
+  } finally {
+    conn.release();
+  }
+});
+
+app.put("/api/adoption-records/:id", async (req, res) => {
+  const { id } = req.params;
+  const { petId, dateOfRecord, notes, adopterId, staffId } = req.body;
+  const conn = await pool.getConnection();
+
+  const cleanAdopterId = adopterId === "" ? null : adopterId;
+  const cleanStaffId = staffId === "" ? null : staffId;
+
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `UPDATE record SET petId=?, dateOfRecord=?, notes=? WHERE recordId=?`,
+      [petId, dateOfRecord, notes, id]
+    );
+
+    await conn.query(
+      `UPDATE adoption_record SET adopterId=?, staffId=? WHERE recordId=?`,
+      [cleanAdopterId, cleanStaffId, id]
+    );
+
+    await conn.commit();
+    res.json({ message: "Adoption record updated" });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: "Failed to update adoption record" });
+  } finally {
+    conn.release();
+  }
+});
+
+
+// =======================
+// FOSTER RECORDS (inherits adoption)
+// =======================
+
+app.post("/api/foster-records", async (req, res) => {
+  const {
+    recordId,
+    petId,
+    dateOfRecord,
+    recordType,
+    notes,
+    adopterId,
+    staffId,
+    status,
+    fosterEndDate,
+  } = req.body;
+
+  const conn = await pool.getConnection();
+
+  const cleanAdopterId = adopterId === "" ? null : adopterId;
+  const cleanStaffId = staffId === "" ? null : staffId;
+
+  try {
+    await conn.beginTransaction();
+
+    // base
+    await conn.query(
+      `INSERT INTO record (recordId, petId, dateOfRecord, recordType, notes)
+       VALUES (?, ?, ?, ?, ?)`,
+      [recordId, petId, dateOfRecord, recordType, notes]
+    );
+
+    // adoption layer
+    await conn.query(
+      `INSERT INTO adoption_record (recordId, adopterId, staffId)
+       VALUES (?, ?, ?)`,
+      [recordId, cleanAdopterId, cleanStaffId]
+    );
+
+    // foster layer
+    await conn.query(
+      `INSERT INTO foster_record (recordId, status, fosterEndDate)
+       VALUES (?, ?, ?)`,
+      [recordId, status, fosterEndDate]
+    );
+
+    await conn.commit();
+    res.json({ message: "Foster record created" });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: "Failed to create foster record" });
+  } finally {
+    conn.release();
+  }
+});
+
+app.put("/api/foster-records/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const {
+    petId,
+    dateOfRecord,
+    notes,
+    adopterId,
+    staffId,
+    status,
+    fosterEndDate,
+  } = req.body;
+
+  const conn = await pool.getConnection();
+
+  const cleanAdopterId = adopterId === "" ? null : adopterId;
+  const cleanStaffId = staffId === "" ? null : staffId;
+
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(
+      `UPDATE record SET petId=?, dateOfRecord=?, notes=? WHERE recordId=?`,
+      [petId, dateOfRecord, notes, id]
+    );
+
+    await conn.query(
+      `UPDATE adoption_record SET adopterId=?, staffId=? WHERE recordId=?`,
+      [cleanAdopterId, cleanStaffId, id]
+    );
+
+    await conn.query(
+      `UPDATE foster_record SET status=?, fosterEndDate=? WHERE recordId=?`,
+      [status, fosterEndDate, id]
+    );
+
+    await conn.commit();
+    res.json({ message: "Foster record updated" });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: "Failed to update foster record" });
+  } finally {
+    conn.release();
+  }
+});
+
+
+// =======================
+// DELETE (NO CASCADE SAFE)
+// =======================
+
+app.delete("/api/records/:id", async (req, res) => {
+  const { id } = req.params;
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      "SELECT recordType FROM record WHERE recordId = ?",
+      [id]
+    );
+
+    if (rows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ error: "Record not found" });
+    }
+
+    const type = rows[0].recordType;
+
+    if (type === "foster") {
+      await conn.query("DELETE FROM foster_record WHERE recordId = ?", [id]);
+      await conn.query("DELETE FROM adoption_record WHERE recordId = ?", [id]);
+
+    } else if (type === "adoption") {
+      await conn.query("DELETE FROM adoption_record WHERE recordId = ?", [id]);
+
+    } else if (type === "medical") {
+      await conn.query("DELETE FROM medical_record WHERE recordId = ?", [id]);
+    }
+
+    await conn.query("DELETE FROM record WHERE recordId = ?", [id]);
+
+    await conn.commit();
+    res.json({ message: "Record deleted" });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete record" });
+  } finally {
+    conn.release();
   }
 });
 
