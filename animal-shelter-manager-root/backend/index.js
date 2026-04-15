@@ -4,6 +4,8 @@ import cors from "cors";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 
+import authRoutes from "./routes/auth.js";
+
 dotenv.config();
 
 
@@ -12,6 +14,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -19,6 +22,8 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
 });
+// mount routes
+app.use("/api", authRoutes(pool));
 
 app.get("/api/app_users", async (req, res) => {
   try {
