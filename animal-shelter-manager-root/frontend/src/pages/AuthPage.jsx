@@ -13,14 +13,16 @@ export default function AuthPage() {
     lname: "",
     email: "",
     password: "",
-    role: "adopter",
   });
 
   const [message, setMessage] = useState("");
 
+  // Redirect if already logged in
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (token) navigate("/dashboard");
+    if (token) {
+      navigate("/dashboard");
+    }
   }, [navigate]);
 
   const handleChange = (e) => {
@@ -45,7 +47,9 @@ export default function AuthPage() {
     try {
       const res = await fetch("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           email: form.email,
           password: form.password,
@@ -63,6 +67,7 @@ export default function AuthPage() {
       localStorage.setItem("role", data.role);
 
       navigate("/dashboard");
+
     } catch {
       setMessage("Login failed (server error)");
     } finally {
@@ -71,7 +76,7 @@ export default function AuthPage() {
   };
 
   // =======================
-  // SIGNUP
+  // SIGNUP (Adopter Only)
   // =======================
   const handleSignup = async () => {
     if (!form.fname || !form.lname || !form.email || !form.password) {
@@ -85,8 +90,15 @@ export default function AuthPage() {
     try {
       const res = await fetch("/api/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fname: form.fname,
+          lname: form.lname,
+          email: form.email,
+          password: form.password,
+        }),
       });
 
       const data = await res.json();
@@ -96,8 +108,9 @@ export default function AuthPage() {
         return;
       }
 
-      setMessage("Signup successful! You can now log in.");
+      setMessage("Account created! You can now log in.");
       setIsLogin(true);
+
     } catch {
       setMessage("Signup failed (server error)");
     } finally {
@@ -108,13 +121,25 @@ export default function AuthPage() {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
+
+        {/* APP TITLE */}
+        <h1 style={styles.appTitle}>Animal Shelter Manager</h1>
+
+        {/* SUBTITLE */}
+        <p style={styles.subtitle}>
+          {isLogin
+            ? "Login to access your dashboard"
+            : "Create an adopter account"}
+        </p>
+
+        {/* FORM TITLE */}
         <h2 style={styles.title}>
           {isLogin ? "Login" : "Sign Up"}
         </h2>
 
-        {/* ✅ SIGNUP-ONLY FIELDS */}
-        {!isLogin ? (
-          <div style={{ display: "flex", gap: "10px" }}>
+        {/* SIGNUP ONLY */}
+        {!isLogin && (
+          <div style={styles.nameRow}>
             <input
               name="fname"
               placeholder="First Name"
@@ -122,6 +147,7 @@ export default function AuthPage() {
               onChange={handleChange}
               style={styles.input}
             />
+
             <input
               name="lname"
               placeholder="Last Name"
@@ -130,7 +156,7 @@ export default function AuthPage() {
               style={styles.input}
             />
           </div>
-        ) : null}
+        )}
 
         <input
           name="email"
@@ -150,16 +176,9 @@ export default function AuthPage() {
         />
 
         {!isLogin && (
-          <select
-            name="role"
-            value={form.role}
-            onChange={handleChange}
-            style={styles.select}
-          >
-            <option value="adopter">Adopter</option>
-            <option value="staff">Staff</option>
-            <option value="volunteer">Volunteer</option>
-          </select>
+          <p style={styles.note}>
+            Public registration creates adopter accounts only.
+          </p>
         )}
 
         <button
@@ -175,14 +194,15 @@ export default function AuthPage() {
             ? "Please wait..."
             : isLogin
             ? "Login"
-            : "Sign Up"}
+            : "Create Account"}
         </button>
 
         {message && (
           <p
             style={{
               ...styles.message,
-              ...(message.toLowerCase().includes("successful")
+              ...(message.toLowerCase().includes("created") ||
+              message.toLowerCase().includes("login successful")
                 ? styles.success
                 : {}),
             }}
@@ -202,6 +222,7 @@ export default function AuthPage() {
             ? "Don't have an account? Sign up"
             : "Already have an account? Login"}
         </button>
+
       </div>
     </div>
   );
@@ -212,53 +233,78 @@ const styles = {
     minHeight: "100vh",
     backgroundColor: "#f0f2f5",
     display: "flex",
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
+    padding: "20px",
   },
 
   container: {
+    width: "380px",
+    backgroundColor: "#ffffff",
+    padding: "32px",
+    borderRadius: "18px",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
     display: "flex",
     flexDirection: "column",
-    gap: "15px",
-    width: "320px",
-    padding: "30px",
-    backgroundColor: "#ffffff",
-    borderRadius: "16px",
-    boxShadow: "0 8px 25px rgba(0,0,0,0.08)",
+    gap: "14px",
   },
 
-  title: {
+  appTitle: {
+    margin: 0,
     textAlign: "center",
-    marginBottom: "10px",
+    fontSize: "28px",
+    fontWeight: "700",
     color: "#1a202c",
   },
 
+  subtitle: {
+    margin: 0,
+    textAlign: "center",
+    fontSize: "14px",
+    color: "#718096",
+  },
+
+  title: {
+    margin: "8px 0 4px 0",
+    textAlign: "center",
+    fontSize: "22px",
+    color: "#1a202c",
+  },
+
+  nameRow: {
+    display: "flex",
+    gap: "10px",
+  },
+
   input: {
-    padding: "10px 12px",
+    width: "100%",
+    padding: "11px 12px",
     borderRadius: "10px",
     border: "1px solid #e2e8f0",
     outline: "none",
     fontSize: "14px",
-    width: "100%",
-  },
-
-  select: {
-    padding: "10px 12px",
-    borderRadius: "10px",
-    border: "1px solid #e2e8f0",
-    backgroundColor: "white",
+    boxSizing: "border-box",
   },
 
   button: {
-    padding: "10px",
+    padding: "12px",
     borderRadius: "10px",
     border: "none",
     backgroundColor: "#3b82f6",
     color: "white",
-    fontWeight: "600",
+    fontWeight: "700",
+    fontSize: "14px",
+  },
+
+  note: {
+    margin: 0,
+    fontSize: "12px",
+    color: "#718096",
+    textAlign: "center",
   },
 
   message: {
+    margin: 0,
     textAlign: "center",
     fontSize: "13px",
     color: "#ef4444",
@@ -269,12 +315,12 @@ const styles = {
   },
 
   toggle: {
-    marginTop: "10px",
-    fontSize: "12px",
-    textAlign: "center",
-    color: "#3b82f6",
-    background: "none",
+    marginTop: "4px",
     border: "none",
+    background: "none",
+    color: "#3b82f6",
     cursor: "pointer",
+    fontSize: "12px",
+    fontWeight: "600",
   },
 };

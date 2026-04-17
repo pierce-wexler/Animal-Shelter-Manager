@@ -1,6 +1,7 @@
 // File created/updated with help from chatgpt
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { jwtDecode } from "jwt-decode";
 
 import UserManager from "./UserManager";
 import UserTypeManager from "./UserTypeManager";
@@ -11,28 +12,69 @@ import AdoptionRequestManager from "./AdoptionRequestManager";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("users");
 
+  // =======================
+  // Decode JWT
+  // =======================
+  const token = localStorage.getItem("token");
+
+  const userData = useMemo(() => {
+    try {
+      return token ? jwtDecode(token) : null;
+    } catch {
+      return null;
+    }
+  }, [token]);
+
+  const role = userData?.role || localStorage.getItem("role");
+  const isAdmin = userData?.isAdmin || false;
+
+  // Default tabs by role
+  const defaultTab =
+    role === "adopter" ? "requests" : "pets";
+
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  // =======================
+  // Logout
+  // =======================
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("role");
+    localStorage.removeItem("isAdmin");
     navigate("/login");
   };
 
   return (
-    <div style={{ backgroundColor: "#f0f2f5", minHeight: "100vh", padding: "20px" }}>
-      
+    <div
+      style={{
+        backgroundColor: "#f0f2f5",
+        minHeight: "100vh",
+        padding: "20px",
+      }}
+    >
       {/* HEADER */}
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "30px"
-      }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "30px",
+        }}
+      >
         <div>
-          <h1 style={{ margin: 0 }}>Admin Dashboard</h1>
+          <h1 style={{ margin: 0 }}>
+            {isAdmin
+              ? "Superuser Dashboard"
+              : role === "staff"
+              ? "Staff Dashboard"
+              : role === "volunteer"
+              ? "Volunteer Dashboard"
+              : "Adopter Dashboard"}
+          </h1>
+
           <p style={{ margin: 0, color: "#718096" }}>
-            Shelter Management System
+            Animal Shelter Management System
           </p>
         </div>
 
@@ -45,7 +87,7 @@ export default function Dashboard() {
             backgroundColor: "#ef4444",
             color: "white",
             cursor: "pointer",
-            fontWeight: "600"
+            fontWeight: "600",
           }}
         >
           Logout
@@ -54,22 +96,119 @@ export default function Dashboard() {
 
       {/* NAV */}
       <div style={tabStyles.nav}>
-        <button style={activeTab === "users" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("users")}>Users</button>
-        <button style={activeTab === "roles" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("roles")}>Roles</button>
-        <button style={activeTab === "pets" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("pets")}>Pets</button>
-        <button style={activeTab === "records" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("records")}>Records</button>
-        <button style={activeTab === "events" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("events")}>Events</button>
-        <button style={activeTab === "requests" ? tabStyles.activeBtn : tabStyles.btn} onClick={() => setActiveTab("requests")}>Requests</button>
+        {/* ADMIN ONLY */}
+        {isAdmin && (
+          <>
+            <button
+              style={
+                activeTab === "users"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("users")}
+            >
+              Users
+            </button>
+
+            <button
+              style={
+                activeTab === "roles"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("roles")}
+            >
+              Roles
+            </button>
+          </>
+        )}
+
+        {/* STAFF + ADMIN */}
+        {(role === "staff" || isAdmin) && (
+          <>
+            <button
+              style={
+                activeTab === "pets"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("pets")}
+            >
+              Pets
+            </button>
+
+            <button
+              style={
+                activeTab === "records"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("records")}
+            >
+              Records
+            </button>
+
+            <button
+              style={
+                activeTab === "events"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("events")}
+            >
+              Events
+            </button>
+          </>
+        )}
+
+        {/* ADOPTER + STAFF + ADMIN */}
+        {(role === "adopter" ||
+          role === "staff" ||
+          isAdmin) && (
+          <button
+            style={
+              activeTab === "requests"
+                ? tabStyles.activeBtn
+                : tabStyles.btn
+            }
+            onClick={() => setActiveTab("requests")}
+          >
+            Requests
+          </button>
+        )}
       </div>
 
       {/* CONTENT */}
       <div style={{ marginTop: "20px" }}>
-        {activeTab === "users" && <UserManager />}
-        {activeTab === "roles" && <UserTypeManager />}
-        {activeTab === "pets" && <PetManager />}
-        {activeTab === "records" && <RecordManager />}
-        {activeTab === "events" && <EventManager />}
-        {activeTab === "requests" && <AdoptionRequestManager />}
+        {activeTab === "users" && isAdmin && (
+          <UserManager />
+        )}
+
+        {activeTab === "roles" && isAdmin && (
+          <UserTypeManager />
+        )}
+
+        {activeTab === "pets" &&
+          (role === "staff" || isAdmin) && (
+            <PetManager />
+          )}
+
+        {activeTab === "records" &&
+          (role === "staff" || isAdmin) && (
+            <RecordManager />
+          )}
+
+        {activeTab === "events" &&
+          (role === "staff" || isAdmin) && (
+            <EventManager />
+          )}
+
+        {activeTab === "requests" &&
+          (role === "adopter" ||
+            role === "staff" ||
+            isAdmin) && (
+            <AdoptionRequestManager />
+          )}
       </div>
     </div>
   );
@@ -79,6 +218,7 @@ const tabStyles = {
   nav: {
     display: "flex",
     justifyContent: "center",
+    flexWrap: "wrap",
     gap: "12px",
     marginBottom: "20px",
     padding: "10px",
@@ -86,8 +226,9 @@ const tabStyles = {
     width: "fit-content",
     margin: "0 auto",
     borderRadius: "30px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
+    boxShadow: "0 2px 10px rgba(0,0,0,0.05)",
   },
+
   btn: {
     padding: "10px 24px",
     border: "none",
@@ -95,8 +236,9 @@ const tabStyles = {
     backgroundColor: "transparent",
     color: "#718096",
     cursor: "pointer",
-    fontWeight: "600"
+    fontWeight: "600",
   },
+
   activeBtn: {
     padding: "10px 24px",
     border: "none",
@@ -104,6 +246,7 @@ const tabStyles = {
     backgroundColor: "#3b82f6",
     color: "white",
     cursor: "pointer",
-    fontWeight: "600"
-  }
+    fontWeight: "600",
+  },
 };
+

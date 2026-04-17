@@ -1,6 +1,6 @@
 // File created/updated with help from chatgpt
 import express from "express";
-import bcrypt from "bcryptjs"; // safer than bcrypt on Windows
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const router = express.Router();
@@ -9,12 +9,26 @@ export default (pool) => {
 
   // =======================
   // SIGNUP
+  // Public signup ONLY creates adopters
+  // Staff / volunteer accounts must be created internally
   // =======================
   router.post("/signup", async (req, res) => {
-    const { email, password, role, fname, lname } = req.body;
+    let { email, password, fname, lname } = req.body;
 
-    if (!email || !password || !role) {
+    email = email?.trim().toLowerCase();
+    fname = fname?.trim();
+    lname = lname?.trim();
+
+    const role = "adopter";
+
+    if (!email || !password || !fname || !lname) {
       return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        error: "Password must be at least 6 characters",
+      });
     }
 
     const conn = await pool.getConnection();
@@ -24,40 +38,26 @@ export default (pool) => {
 
       await conn.beginTransaction();
 
-      // Insert into app_user
+      // Create base user
       const [result] = await conn.query(
         "INSERT INTO app_user (email, passwordHash, fname, lname) VALUES (?, ?, ?, ?)",
-        [email, hash, fname || null, lname || null]
+        [email, hash, fname, lname]
       );
 
       const userId = result.insertId;
 
-      // Insert into role table
-      if (role === "adopter") {
-        await conn.query(
-          "INSERT INTO adopter (userId, qualificationNotes, blacklistFlag) VALUES (?, '', false)",
-          [userId]
-        );
-      } 
-      else if (role === "staff") {
-        await conn.query(
-          "INSERT INTO staff (userId, supervisor) VALUES (?, NULL)",
-          [userId]
-        );
-      } 
-      else if (role === "volunteer") {
-        await conn.query(
-          "INSERT INTO volunteer (userId, supervisor) VALUES (?, NULL)",
-          [userId]
-        );
-      } 
-      else {
-        throw new Error("Invalid role");
-      }
+      // Always create adopter profile
+      await conn.query(
+        "INSERT INTO adopter (userId, qualificationNotes, blacklistFlag) VALUES (?, '', false)",
+        [userId]
+      );
 
       await conn.commit();
 
-      res.status(201).json({ message: "User created successfully" });
+      res.status(201).json({
+        message: "Adopter account created successfully",
+        role,
+      });
 
     } catch (err) {
       await conn.rollback();
@@ -78,7 +78,9 @@ export default (pool) => {
   // LOGIN
   // =======================
   router.post("/login", async (req, res) => {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
+
+    email = email?.trim().toLowerCase();
 
     if (!email || !password) {
       return res.status(400).json({ error: "Missing email or password" });
@@ -102,7 +104,9 @@ export default (pool) => {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Determine role (priority order)
+      // =======================
+      // Determine role
+      // =======================
       let role = null;
 
       const [[staff]] = await pool.query(
@@ -128,13 +132,24 @@ export default (pool) => {
         return res.status(500).json({ error: "User role not found" });
       }
 
-      // Create JWT
+      // =======================
+      // SPECIFIC SUPERUSER
+      // Only this email becomes admin
+      // =======================
+      const isAdmin =
+        role === "staff" &&
+        user.email.toLowerCase() === "admin@shelter.com";
+
+      // =======================
+      // Generate JWT
+      // =======================
       const token = jwt.sign(
         {
           userId: user.userId,
           role,
+          isAdmin,
         },
-        process.env.JWT_SECRET || "dev_secret", // fallback for dev
+        process.env.JWT_SECRET || "dev_secret",
         { expiresIn: "1h" }
       );
 
@@ -142,6 +157,7 @@ export default (pool) => {
         message: "Login successful",
         token,
         role,
+        isAdmin,
       });
 
     } catch (err) {
