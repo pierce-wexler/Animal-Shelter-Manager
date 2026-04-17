@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { jwtDecode } from "jwt-decode";
 
 import UserManager from "./UserManager";
-import UserTypeManager from "./UserTypeManager";
 import RecordManager from "./RecordManager";
 import PetManager from "./PetManager";
 import EventManager from "./EventManager";
@@ -31,7 +30,7 @@ export default function Dashboard() {
 
   // Default tabs by role
   const defaultTab =
-    role === "adopter" ? "requests" : "pets";
+    role === "adopter" ? "requests" : isAdmin ? "users" : "pets";
 
   const [activeTab, setActiveTab] = useState(defaultTab);
 
@@ -98,29 +97,16 @@ export default function Dashboard() {
       <div style={tabStyles.nav}>
         {/* ADMIN ONLY */}
         {isAdmin && (
-          <>
-            <button
-              style={
-                activeTab === "users"
-                  ? tabStyles.activeBtn
-                  : tabStyles.btn
-              }
-              onClick={() => setActiveTab("users")}
-            >
-              Users
-            </button>
-
-            <button
-              style={
-                activeTab === "roles"
-                  ? tabStyles.activeBtn
-                  : tabStyles.btn
-              }
-              onClick={() => setActiveTab("roles")}
-            >
-              Roles
-            </button>
-          </>
+          <button
+            style={
+              activeTab === "users"
+                ? tabStyles.activeBtn
+                : tabStyles.btn
+            }
+            onClick={() => setActiveTab("users")}
+          >
+            Admin
+          </button>
         )}
 
         {/* STAFF + ADMIN */}
@@ -161,9 +147,10 @@ export default function Dashboard() {
           </>
         )}
 
-        {/* ADOPTER + STAFF + ADMIN */}
+        {/* ALL USERS */}
         {(role === "adopter" ||
           role === "staff" ||
+          role === "volunteer" ||
           isAdmin) && (
           <button
             style={
@@ -184,10 +171,6 @@ export default function Dashboard() {
           <UserManager />
         )}
 
-        {activeTab === "roles" && isAdmin && (
-          <UserTypeManager />
-        )}
-
         {activeTab === "pets" &&
           (role === "staff" || isAdmin) && (
             <PetManager />
@@ -206,6 +189,7 @@ export default function Dashboard() {
         {activeTab === "requests" &&
           (role === "adopter" ||
             role === "staff" ||
+            role === "volunteer" ||
             isAdmin) && (
             <AdoptionRequestManager />
           )}
@@ -249,4 +233,6 @@ const tabStyles = {
     fontWeight: "600",
   },
 };
+
+
 

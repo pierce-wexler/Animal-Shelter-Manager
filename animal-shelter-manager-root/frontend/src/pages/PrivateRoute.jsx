@@ -1,5 +1,5 @@
 // File created/updated with help from chatgpt
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
 export default function PrivateRoute({
@@ -7,34 +7,66 @@ export default function PrivateRoute({
   requiredRole = null,
   adminOnly = false,
 }) {
+  const location = useLocation();
   const token = localStorage.getItem("token");
 
+  // =====================================
+  // NO TOKEN
+  // =====================================
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location }}
+      />
+    );
   }
 
   try {
     const decoded = jwtDecode(token);
 
-    // Expired token
-    if (decoded.exp * 1000 < Date.now()) {
+    // =====================================
+    // TOKEN EXPIRED
+    // =====================================
+    if (!decoded.exp || decoded.exp * 1000 < Date.now()) {
       localStorage.removeItem("token");
       localStorage.removeItem("role");
       localStorage.removeItem("isAdmin");
 
-      return <Navigate to="/login" replace />;
+      return (
+        <Navigate
+          to="/login"
+          replace
+          state={{ expired: true }}
+        />
+      );
     }
 
-    // Role restriction
-    if (requiredRole && decoded.role !== requiredRole) {
+    const role =
+      decoded.role || localStorage.getItem("role");
+
+    const isAdmin =
+      decoded.isAdmin ||
+      localStorage.getItem("isAdmin") === "true";
+
+    // =====================================
+    // ADMIN ONLY
+    // =====================================
+    if (adminOnly && !isAdmin) {
       return <Navigate to="/dashboard" replace />;
     }
 
-    // Admin restriction
-    if (adminOnly && !decoded.isAdmin) {
+    // =====================================
+    // ROLE REQUIRED
+    // =====================================
+    if (requiredRole && role !== requiredRole) {
       return <Navigate to="/dashboard" replace />;
     }
 
+    // =====================================
+    // VALID ACCESS
+    // =====================================
     return children;
 
   } catch (err) {

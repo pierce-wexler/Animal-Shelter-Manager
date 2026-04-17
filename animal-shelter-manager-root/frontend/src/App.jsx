@@ -7,8 +7,20 @@ import PrivateRoute from "./pages/PrivateRoute";
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<AuthPage />} />
 
+      {/* Default Route */}
+      <Route
+        path="/"
+        element={<Navigate to="/login" replace />}
+      />
+
+      {/* Public Login / Signup */}
+      <Route
+        path="/login"
+        element={<AuthPage />}
+      />
+
+      {/* Protected Dashboard */}
       <Route
         path="/dashboard"
         element={
@@ -18,7 +30,12 @@ export default function App() {
         }
       />
 
-      <Route path="*" element={<Navigate to="/login" />} />
+      {/* Catch All */}
+      <Route
+        path="*"
+        element={<Navigate to="/login" replace />}
+      />
+
     </Routes>
   );
 }
