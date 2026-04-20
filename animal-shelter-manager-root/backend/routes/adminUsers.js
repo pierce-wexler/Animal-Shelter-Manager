@@ -8,7 +8,7 @@ const router = express.Router();
 export default (pool) => {
 
   // ==================================================
-  // GET ALL USERS (for admin table view)
+  // GET ALL USERS
   // ==================================================
   router.get(
     "/admin/users",
@@ -39,7 +39,39 @@ export default (pool) => {
           LEFT JOIN adopter a ON u.userId = a.userId
           LEFT JOIN staff s ON u.userId = s.userId
           LEFT JOIN volunteer v ON u.userId = v.userId
+          ORDER BY u.userId ASC
+        `);
 
+        res.json(rows);
+
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Failed to fetch users" });
+      }
+    }
+  );
+
+  // ==================================================
+  // GET ONLY ADOPTERS
+  // JOIN app_user + adopter
+  // ==================================================
+  router.get(
+    "/admin/users/adopters",
+    verifyToken,
+    requireAdmin,
+    async (req, res) => {
+      try {
+        const [rows] = await pool.query(`
+          SELECT
+            u.userId,
+            u.fname,
+            u.lname,
+            u.email,
+            a.qualificationNotes,
+            a.blacklistFlag
+          FROM app_user u
+          INNER JOIN adopter a
+            ON u.userId = a.userId
           ORDER BY u.userId ASC
         `);
 
@@ -48,7 +80,82 @@ export default (pool) => {
       } catch (err) {
         console.error(err);
         res.status(500).json({
-          error: "Failed to fetch users",
+          error: "Failed to fetch adopters",
+        });
+      }
+    }
+  );
+
+  // ==================================================
+  // GET ONLY STAFF / ADMINS
+  // JOIN app_user + staff
+  // ==================================================
+  router.get(
+    "/admin/users/staff",
+    verifyToken,
+    requireAdmin,
+    async (req, res) => {
+      try {
+        const [rows] = await pool.query(`
+          SELECT
+            u.userId,
+            u.fname,
+            u.lname,
+            u.email,
+            s.supervisor,
+
+            CASE
+              WHEN u.email = 'admin@shelter.com'
+                THEN 'admin'
+              ELSE 'staff'
+            END AS roleType
+
+          FROM app_user u
+          INNER JOIN staff s
+            ON u.userId = s.userId
+          ORDER BY u.userId ASC
+        `);
+
+        res.json(rows);
+
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({
+          error: "Failed to fetch staff",
+        });
+      }
+    }
+  );
+
+  // ==================================================
+  // GET ONLY VOLUNTEERS
+  // JOIN app_user + volunteer
+  // ==================================================
+  router.get(
+    "/admin/users/volunteers",
+    verifyToken,
+    requireAdmin,
+    async (req, res) => {
+      try {
+        const [rows] = await pool.query(`
+          SELECT
+            u.userId,
+            u.fname,
+            u.lname,
+            u.email,
+            v.supervisor
+          FROM app_user u
+          INNER JOIN volunteer v
+            ON u.userId = v.userId
+          ORDER BY u.userId ASC
+        `);
+
+        res.json(rows);
+
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({
+          error: "Failed to fetch volunteers",
         });
       }
     }
@@ -86,7 +193,6 @@ export default (pool) => {
 
         await conn.beginTransaction();
 
-        // Base user
         const [result] = await conn.query(
           `INSERT INTO app_user
           (fname, lname, email, passwordHash)
@@ -96,7 +202,6 @@ export default (pool) => {
 
         const userId = result.insertId;
 
-        // Role table insert
         if (roleType === "adopter") {
           await conn.query(
             `INSERT INTO adopter
@@ -167,13 +272,7 @@ export default (pool) => {
     requireAdmin,
     async (req, res) => {
       const { id } = req.params;
-
-      const {
-        fname,
-        lname,
-        email,
-        password,
-      } = req.body;
+      const { fname, lname, email, password } = req.body;
 
       try {
         const fields = [];
@@ -243,13 +342,11 @@ export default (pool) => {
     requireAdmin,
     async (req, res) => {
       const { id } = req.params;
-
       const conn = await pool.getConnection();
 
       try {
         await conn.beginTransaction();
 
-        // remove child role tables first
         await conn.query(
           "DELETE FROM adopter WHERE userId = ?",
           [id]
@@ -265,7 +362,6 @@ export default (pool) => {
           [id]
         );
 
-        // remove base user
         const [result] = await conn.query(
           "DELETE FROM app_user WHERE userId = ?",
           [id]
@@ -301,4 +397,3 @@ export default (pool) => {
 
   return router;
 };
-

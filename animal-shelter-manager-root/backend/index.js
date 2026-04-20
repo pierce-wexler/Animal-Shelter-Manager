@@ -12,6 +12,8 @@ import petsRoutes from "./routes/pets.js";
 import eventsRoutes from "./routes/events.js";
 import recordsRoutes from "./routes/records.js";
 import requestsRoutes from "./routes/requests.js";
+import kennelRoutes from "./routes/kennels.js";
+
 
 // Load .env variables
 dotenv.config();
@@ -55,10 +57,12 @@ const pool = mysql.createPool({
 app.use("/api", authRoutes(pool));
 app.use("/api", adminUsersRoutes(pool));
 app.use("/api", usersRoutes(pool));
+app.use("/api", kennelRoutes(pool));
 app.use("/api", petsRoutes(pool));
 app.use("/api", eventsRoutes(pool));
 app.use("/api", recordsRoutes(pool));
 app.use("/api", requestsRoutes(pool));
+app.use("/uploads", express.static("uploads"));
 
 // ==================================================
 // Health Check

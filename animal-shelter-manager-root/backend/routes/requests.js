@@ -22,7 +22,7 @@ export default (pool) => {
             petId,
             description,
             status,
-            fulfilledBy,
+            fufilledBy,
             adoptionType
           FROM adoption_request
           ORDER BY requestId DESC
@@ -87,7 +87,7 @@ export default (pool) => {
         petId,
         description,
         status,
-        fulfilledBy,
+        fufilledBy,
         adoptionType,
       } = req.body;
 
@@ -106,7 +106,7 @@ export default (pool) => {
             petId,
             description,
             status,
-            fulfilledBy,
+            fufilledBy,
             adoptionType
           )
           VALUES (?, ?, ?, ?, ?, ?)
@@ -116,7 +116,7 @@ export default (pool) => {
             petId,
             description || null,
             status || "pending",
-            fulfilledBy || null,
+            fufilledBy || null,
             adoptionType,
           ]
         );
@@ -149,7 +149,7 @@ export default (pool) => {
         petId,
         description,
         status,
-        fulfilledBy,
+        fufilledBy,
         adoptionType,
       } = req.body;
 
@@ -162,7 +162,7 @@ export default (pool) => {
             petId = ?,
             description = ?,
             status = ?,
-            fulfilledBy = ?,
+            fufilledBy = ?,
             adoptionType = ?
           WHERE requestId = ?
           `,
@@ -171,7 +171,7 @@ export default (pool) => {
             petId,
             description,
             status,
-            fulfilledBy || null,
+            fufilledBy || null,
             adoptionType,
             id,
           ]

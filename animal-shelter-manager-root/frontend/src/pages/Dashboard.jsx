@@ -8,6 +8,7 @@ import RecordManager from "./RecordManager";
 import PetManager from "./PetManager";
 import EventManager from "./EventManager";
 import AdoptionRequestManager from "./AdoptionRequestManager";
+import PetCards from "./PetCards";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -66,10 +67,10 @@ export default function Dashboard() {
             {isAdmin
               ? "Superuser Dashboard"
               : role === "staff"
-              ? "Staff Dashboard"
-              : role === "volunteer"
-              ? "Volunteer Dashboard"
-              : "Adopter Dashboard"}
+                ? "Staff Dashboard"
+                : role === "volunteer"
+                  ? "Volunteer Dashboard"
+                  : "Adopter Dashboard"}
           </h1>
 
           <p style={{ margin: 0, color: "#718096" }}>
@@ -152,17 +153,30 @@ export default function Dashboard() {
           role === "staff" ||
           role === "volunteer" ||
           isAdmin) && (
-          <button
-            style={
-              activeTab === "requests"
-                ? tabStyles.activeBtn
-                : tabStyles.btn
-            }
-            onClick={() => setActiveTab("requests")}
-          >
-            Requests
-          </button>
-        )}
+            <>
+              <button
+                style={
+                  activeTab === "requests"
+                    ? tabStyles.activeBtn
+                    : tabStyles.btn
+                }
+                onClick={() => setActiveTab("requests")}
+              >
+                Requests
+              </button>
+              <button
+                style={
+                  activeTab === "gallery"
+                    ? tabStyles.activeBtn
+                    : tabStyles.btn
+                }
+                onClick={() => setActiveTab("gallery")}
+              >
+                Pet Gallery
+              </button>
+            </>
+
+          )}
       </div>
 
       {/* CONTENT */}
@@ -193,6 +207,9 @@ export default function Dashboard() {
             isAdmin) && (
             <AdoptionRequestManager />
           )}
+        {activeTab === "gallery" && (
+          <PetCards />
+        )}
       </div>
     </div>
   );

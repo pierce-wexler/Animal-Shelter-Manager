@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import "./Manager.css";
 
 export default function UserManager() {
+  const token = localStorage.getItem("token");
+
   const [form, setForm] = useState({
     userId: "",
     fname: "",
@@ -19,24 +21,49 @@ export default function UserManager() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
-  const token = localStorage.getItem("token");
-
   // =====================================
-  // Load Users
+  // FETCH USERS BASED ON ROLE TYPE
   // =====================================
-  const fetchUsers = async () => {
+  const fetchUsers = async (role = form.roleType) => {
     try {
-      const res = await fetch("/api/admin/users", {
+      let endpoint = "/api/admin/users";
+
+      if (role === "adopter") {
+        endpoint = "/api/admin/users/adopters";
+      } else if (
+        role === "staff" ||
+        role === "admin"
+      ) {
+        endpoint = "/api/admin/users/staff";
+      } else if (role === "volunteer") {
+        endpoint = "/api/admin/users/volunteers";
+      }
+
+      const res = await fetch(endpoint, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      const data = await res.json();
+      let data = await res.json();
+
+      // Filter staff/admin from same endpoint
+      if (role === "admin") {
+        data = data.filter(
+          (u) => u.roleType === "admin"
+        );
+      }
+
+      if (role === "staff") {
+        data = data.filter(
+          (u) => u.roleType === "staff"
+        );
+      }
 
       if (res.ok) {
         setUsers(data);
       }
+
     } catch (err) {
       console.error(err);
     }
@@ -47,17 +74,23 @@ export default function UserManager() {
   }, []);
 
   // =====================================
-  // Form Changes
+  // INPUT CHANGE
   // =====================================
   const handleChange = (e) => {
-    setForm({
+    const updated = {
       ...form,
       [e.target.name]: e.target.value,
-    });
+    };
+
+    setForm(updated);
+
+    if (e.target.name === "roleType") {
+      fetchUsers(e.target.value);
+    }
   };
 
   // =====================================
-  // CRUD Actions
+  // CRUD ACTIONS
   // =====================================
   const handleAction = async (method) => {
     try {
@@ -82,7 +115,7 @@ export default function UserManager() {
       const data = await res.json();
 
       setIsError(!res.ok);
-      setMessage(data.message || data.error || "Success");
+      setMessage(data.message || data.error);
 
       if (res.ok) {
         fetchUsers();
@@ -90,30 +123,57 @@ export default function UserManager() {
 
     } catch {
       setIsError(true);
-      setMessage("Network or server error");
+      setMessage("Server error");
     }
+  };
+
+  // =====================================
+  // ROW CLICK → AUTOFILL FORM
+  // =====================================
+  const handleRowClick = (user) => {
+    setForm({
+      userId: user.userId || "",
+      fname: user.fname || "",
+      lname: user.lname || "",
+      email: user.email || "",
+      password: "", // never autofill password
+
+      roleType: user.roleType || form.roleType,
+
+      qualificationNotes: user.qualificationNotes || "",
+      blacklistFlag:
+        user.blacklistFlag !== undefined
+          ? String(user.blacklistFlag)
+          : "0",
+
+      supervisor: user.supervisor || "",
+    });
   };
 
   return (
     <div className="manager-card">
-      <h2 className="manager-title">User + Role Management</h2>
+      <h2 className="manager-title">
+        User + Role Management
+      </h2>
 
       {/* FORM */}
       <div className="form-container">
 
         <label className="input-label">
-          Existing User ID (Update / Delete Only)
+          Existing User ID (Required for Update/Delete)
         </label>
 
         <input
           name="userId"
-          placeholder="User ID"
+          placeholder="Auto-filled when clicking a row"
           value={form.userId}
           onChange={handleChange}
           className="custom-input"
         />
 
-        <label className="input-label">Basic Information</label>
+        <label className="input-label">
+          Basic Info
+        </label>
 
         <div className="input-row">
           <input
@@ -150,7 +210,10 @@ export default function UserManager() {
           className="custom-input"
         />
 
-        <label className="input-label">Account Type</label>
+        {/* ACCOUNT TYPE */}
+        <label className="input-label">
+          Account Type
+        </label>
 
         <select
           name="roleType"
@@ -164,7 +227,10 @@ export default function UserManager() {
           <option value="admin">Admin</option>
         </select>
 
-        <label className="input-label">Role Details</label>
+        {/* ROLE FIELDS */}
+        <label className="input-label">
+          Role Details
+        </label>
 
         {form.roleType === "adopter" ? (
           <>
@@ -182,14 +248,18 @@ export default function UserManager() {
               onChange={handleChange}
               className="custom-input"
             >
-              <option value="0">Not Blacklisted</option>
-              <option value="1">Blacklisted</option>
+              <option value="0">
+                Not Blacklisted
+              </option>
+              <option value="1">
+                Blacklisted
+              </option>
             </select>
           </>
         ) : (
           <input
             name="supervisor"
-            placeholder="Supervisor User ID (optional)"
+            placeholder="Supervisor User ID"
             value={form.supervisor}
             onChange={handleChange}
             className="custom-input"
@@ -221,16 +291,18 @@ export default function UserManager() {
         </button>
       </div>
 
-      {/* STATUS */}
+      {/* MESSAGE */}
       {message && (
         <div className={`status-message ${isError ? "error" : "success"}`}>
           {message}
         </div>
       )}
 
-      {/* TABLE VIEW */}
+      {/* TABLE */}
       <div style={{ marginTop: "30px" }}>
-        <h3>Current Users</h3>
+        <h3>
+          Current {form.roleType} Accounts
+        </h3>
 
         <table className="data-table">
           <thead>
@@ -239,18 +311,61 @@ export default function UserManager() {
               <th>First</th>
               <th>Last</th>
               <th>Email</th>
+
+              {form.roleType === "adopter" && (
+                <>
+                  <th>Notes</th>
+                  <th>Blacklisted</th>
+                </>
+              )}
+
+              {(form.roleType === "staff" ||
+                form.roleType === "admin" ||
+                form.roleType === "volunteer") && (
+                <th>Supervisor</th>
+              )}
+
               <th>Role</th>
             </tr>
           </thead>
 
           <tbody>
             {users.map((user) => (
-              <tr key={user.userId}>
+              <tr
+                key={user.userId}
+                onClick={() => handleRowClick(user)}
+                style={{ cursor: "pointer" }}
+              >
                 <td>{user.userId}</td>
                 <td>{user.fname}</td>
                 <td>{user.lname}</td>
                 <td>{user.email}</td>
-                <td>{user.roleType}</td>
+
+                {form.roleType === "adopter" && (
+                  <>
+                    <td>
+                      {user.qualificationNotes}
+                    </td>
+                    <td>
+                      {user.blacklistFlag
+                        ? "Yes"
+                        : "No"}
+                    </td>
+                  </>
+                )}
+
+                {(form.roleType === "staff" ||
+                  form.roleType === "admin" ||
+                  form.roleType === "volunteer") && (
+                  <td>
+                    {user.supervisor || "-"}
+                  </td>
+                )}
+
+                <td>
+                  {user.roleType ||
+                    form.roleType}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -11,7 +11,7 @@ export default function AdoptionRequestManager() {
     petId: "",
     description: "",
     status: "",
-    fulfilledBy: "",
+    fufilledBy: "",
     adoptionType: "",
   });
 
@@ -167,9 +167,9 @@ export default function AdoptionRequestManager() {
           </select>
 
           <input
-            name="fulfilledBy"
+            name="fufilledBy"
             placeholder="Staff ID"
-            value={form.fulfilledBy}
+            value={form.fufilledBy}
             onChange={handleChange}
             className="custom-input"
           />
@@ -244,7 +244,7 @@ export default function AdoptionRequestManager() {
                 <td>{req.petId}</td>
                 <td>{req.adoptionType}</td>
                 <td>{req.status}</td>
-                <td>{req.fulfilledBy}</td>
+                <td>{req.fufilledBy}</td>
               </tr>
             ))}
           </tbody>
