@@ -9,6 +9,7 @@ import PetManager from "./PetManager";
 import EventManager from "./EventManager";
 import AdoptionRequestManager from "./AdoptionRequestManager";
 import PetCards from "./PetCards";
+import MyRequests from "./MyRequests"; // ✅ added
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -29,9 +30,11 @@ export default function Dashboard() {
   const role = userData?.role || localStorage.getItem("role");
   const isAdmin = userData?.isAdmin || false;
 
+  // =======================
   // Default tabs by role
+  // =======================
   const defaultTab =
-    role === "adopter" ? "requests" : isAdmin ? "users" : "pets";
+    role === "adopter" ? "gallery" : isAdmin ? "users" : "pets";
 
   const [activeTab, setActiveTab] = useState(defaultTab);
 
@@ -67,10 +70,10 @@ export default function Dashboard() {
             {isAdmin
               ? "Superuser Dashboard"
               : role === "staff"
-                ? "Staff Dashboard"
-                : role === "volunteer"
-                  ? "Volunteer Dashboard"
-                  : "Adopter Dashboard"}
+              ? "Staff Dashboard"
+              : role === "volunteer"
+              ? "Volunteer Dashboard"
+              : "Adopter Dashboard"}
           </h1>
 
           <p style={{ margin: 0, color: "#718096" }}>
@@ -115,6 +118,17 @@ export default function Dashboard() {
           <>
             <button
               style={
+                activeTab === "requests"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("requests")}
+            >
+              Requests
+            </button>
+
+            <button
+              style={
                 activeTab === "pets"
                   ? tabStyles.activeBtn
                   : tabStyles.btn
@@ -153,30 +167,33 @@ export default function Dashboard() {
           role === "staff" ||
           role === "volunteer" ||
           isAdmin) && (
-            <>
-              <button
-                style={
-                  activeTab === "requests"
-                    ? tabStyles.activeBtn
-                    : tabStyles.btn
-                }
-                onClick={() => setActiveTab("requests")}
-              >
-                Requests
-              </button>
-              <button
-                style={
-                  activeTab === "gallery"
-                    ? tabStyles.activeBtn
-                    : tabStyles.btn
-                }
-                onClick={() => setActiveTab("gallery")}
-              >
-                Pet Gallery
-              </button>
-            </>
+          <>
+            <button
+              style={
+                activeTab === "gallery"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("gallery")}
+            >
+              Pet Gallery
+            </button>
+          </>
+        )}
 
-          )}
+        {/* ADOPTER ONLY */}
+        {role === "adopter" && (
+          <button
+            style={
+              activeTab === "myRequests"
+                ? tabStyles.activeBtn
+                : tabStyles.btn
+            }
+            onClick={() => setActiveTab("myRequests")}
+          >
+            My Requests
+          </button>
+        )}
       </div>
 
       {/* CONTENT */}
@@ -200,13 +217,17 @@ export default function Dashboard() {
             <EventManager />
           )}
 
+        {/* STAFF / ADMIN REQUESTS */}
         {activeTab === "requests" &&
-          (role === "adopter" ||
-            role === "staff" ||
-            role === "volunteer" ||
-            isAdmin) && (
+          (role === "staff" || isAdmin) && (
             <AdoptionRequestManager />
           )}
+
+        {/* ADOPTER REQUESTS */}
+        {activeTab === "myRequests" && role === "adopter" && (
+          <MyRequests />
+        )}
+
         {activeTab === "gallery" && (
           <PetCards />
         )}
@@ -250,6 +271,3 @@ const tabStyles = {
     fontWeight: "600",
   },
 };
-
-
-

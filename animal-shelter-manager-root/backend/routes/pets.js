@@ -52,6 +52,31 @@ export default (pool) => {
     }
   });
 
+  router.get("/pets/:id", verifyToken, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      const [rows] = await pool.query(
+        "SELECT * FROM pet WHERE petId = ?",
+        [id]
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({
+          error: "Pet not found",
+        });
+      }
+
+      res.json(rows[0]);
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({
+        error: "Failed to fetch pet",
+      });
+    }
+  });
+
   // ==================================================
   // CREATE PET (UPGRADED)
   // ==================================================
@@ -121,7 +146,7 @@ export default (pool) => {
           sex || "",
           kennelId || null,
           breed || "",
-          behavioralNotes || "",      
+          behavioralNotes || "",
           dateOfAdmittance || null,
           finalDays,
           specialNotes || "",

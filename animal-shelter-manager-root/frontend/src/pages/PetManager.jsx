@@ -448,13 +448,16 @@ export default function PetManager() {
 
           <label className="input-label">Name</label>
           <input name="name" placeholder="Name of animal" value={petForm.name} onChange={handlePetChange} className="custom-input" />
-
-          <label className="input-label">Date of Birth</label>
-          <input type="date" name="dateOfBirth" value={petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
-
-          <label className="input-label">Age</label>
-          <input name="age" placeholder="Not req. if DOB specified" value={petForm.age} disabled={!!petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
-
+          <div className="input-row">
+            <div style={{ width: "100%" }}>
+              <label className="input-label">Date of Birth</label>
+              <input type="date" name="dateOfBirth" value={petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
+            </div>
+            <div style={{ width: "100%" }}>
+              <label className="input-label">Age</label>
+              <input name="age" placeholder="Not req. if DOB specified" value={petForm.age} disabled={!!petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
+            </div>
+          </div>
           <label className="input-label">Sex</label>
           <select name="sex" value={petForm.sex} onChange={handlePetChange} className="custom-input">
             <option value="">Select</option>

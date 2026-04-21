@@ -13,7 +13,6 @@ import recordsRoutes from "./routes/records.js";
 import requestsRoutes from "./routes/requests.js";
 import kennelRoutes from "./routes/kennels.js";
 
-
 // Load .env variables
 dotenv.config();
 
@@ -61,7 +60,6 @@ app.use("/api", eventsRoutes(pool));
 app.use("/api", recordsRoutes(pool));
 app.use("/api", requestsRoutes(pool));
 app.use("/uploads", express.static("uploads"));
-
 // ==================================================
 // Health Check
 // ==================================================

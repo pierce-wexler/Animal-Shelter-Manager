@@ -2,6 +2,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
+import AdoptionForm from "./pages/AdoptionForm";
 import PrivateRoute from "./pages/PrivateRoute";
 
 export default function App() {
@@ -26,6 +27,16 @@ export default function App() {
         element={
           <PrivateRoute>
             <Dashboard />
+          </PrivateRoute>
+        }
+      />
+
+      {/* Adoption Page */}
+      <Route
+        path="/adopt/:petId"
+        element={
+          <PrivateRoute>
+            <AdoptionForm />
           </PrivateRoute>
         }
       />
