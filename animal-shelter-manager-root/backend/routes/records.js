@@ -59,8 +59,8 @@ export default (pool) => {
           ar.adopterId,
           ar.staffId,
 
-          au.fname || ' ' || au.lname AS adopterName,
-          su.fname || ' ' || su.lname AS staffName,
+          CONCAT(au.fname, ' ', au.lname) AS adopterName,
+          CONCAT(su.fname, ' ', su.lname) AS staffName,
 
           fr.status AS fosterStatus,
           fr.fosterEndDate

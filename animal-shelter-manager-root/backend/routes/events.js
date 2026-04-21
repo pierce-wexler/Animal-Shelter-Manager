@@ -40,6 +40,51 @@ export default (pool) => {
     }
   );
 
+  router.get("/events/full", verifyToken, async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+      SELECT
+        e.eventId,
+        e.eventType,
+        e.eventDateTime,
+        e.location,
+
+        e.staffId,
+        e.volunteerId,
+        e.adopterId,
+        e.petId,
+
+        CONCAT(su.fname, ' ', su.lname) AS staffName,
+        CONCAT(vu.fname, ' ', vu.lname) AS volunteerName,
+        CONCAT(au.fname, ' ', au.lname) AS adopterName,
+
+        p.name AS petName,
+        p.breed AS petBreed
+
+      FROM event e
+
+      LEFT JOIN app_user su
+        ON e.staffId = su.userId
+
+      LEFT JOIN app_user vu
+        ON e.volunteerId = vu.userId
+
+      LEFT JOIN app_user au
+        ON e.adopterId = au.userId
+
+      LEFT JOIN pet p
+        ON e.petId = p.petId
+
+      ORDER BY e.eventId DESC;
+    `);
+
+      res.json(rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch events" });
+    }
+  });
+
   // ==================================================
   // GET SINGLE EVENT
   // ==================================================

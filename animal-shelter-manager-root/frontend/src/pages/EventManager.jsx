@@ -20,13 +20,17 @@ export default function EventManager() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [staff, setStaff] = useState([]);
+  const [volunteers, setVolunteers] = useState([]);
+  const [adopters, setAdopters] = useState([]);
+  const [pets, setPets] = useState([]);
 
   // =====================================
   // LOAD EVENTS
   // =====================================
   const fetchEvents = async () => {
     try {
-      const res = await fetch("/api/events", {
+      const res = await fetch("/api/events/full", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -40,8 +44,35 @@ export default function EventManager() {
     }
   };
 
+  const fetchParticipants = async () => {
+    try {
+      const [staffRes, volRes, adopRes, petRes] = await Promise.all([
+        fetch("/api/admin/users/staff", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/admin/users/volunteers", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/admin/users/adopters", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/pets", { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+
+      const [staffData, volData, adopData, petData] = await Promise.all([
+        staffRes.json(),
+        volRes.json(),
+        adopRes.json(),
+        petRes.json(),
+      ]);
+
+      if (staffRes.ok) setStaff(staffData);
+      if (volRes.ok) setVolunteers(volData);
+      if (adopRes.ok) setAdopters(adopData);
+      if (petRes.ok) setPets(petData);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchEvents();
+    fetchParticipants();
   }, []);
 
   // =====================================
@@ -189,39 +220,63 @@ export default function EventManager() {
         <label className="input-label">Participants</label>
 
         <div className="input-row">
-          <input
+          <select
             name="staffId"
-            placeholder="Staff ID"
             value={form.staffId}
             onChange={handleChange}
             className="custom-input"
-          />
+          >
+            <option value="">Select Staff</option>
+            {staff.map((s) => (
+              <option key={s.userId} value={s.userId}>
+                #{s.userId} – {s.fname} {s.lname}
+              </option>
+            ))}
+          </select>
 
-          <input
+          <select
             name="petId"
-            placeholder="Pet ID"
             value={form.petId}
             onChange={handleChange}
             className="custom-input"
-          />
+          >
+            <option value="">Select Pet</option>
+            {pets.map((p) => (
+              <option key={p.petId} value={p.petId}>
+                #{p.petId} – {p.name} ({p.breed || "Unknown"})
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="input-row">
-          <input
+          <select
             name="volunteerId"
-            placeholder="Volunteer ID"
             value={form.volunteerId}
             onChange={handleChange}
             className="custom-input"
-          />
+          >
+            <option value="">Select Volunteer</option>
+            {volunteers.map((v) => (
+              <option key={v.userId} value={v.userId}>
+                #{v.userId} – {v.fname} {v.lname}
+              </option>
+            ))}
+          </select>
 
-          <input
+          <select
             name="adopterId"
-            placeholder="Adopter ID"
             value={form.adopterId}
             onChange={handleChange}
             className="custom-input"
-          />
+          >
+            <option value="">Select Adopter</option>
+            {adopters.map((a) => (
+              <option key={a.userId} value={a.userId}>
+                #{a.userId} – {a.fname} {a.lname}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -271,10 +326,19 @@ export default function EventManager() {
                 <th>Type</th>
                 <th>Date/Time</th>
                 <th>Location</th>
-                <th>Staff</th>
-                <th>Volunteer</th>
-                <th>Adopter</th>
-                <th>Pet</th>
+
+                <th>Staff ID</th>
+                <th>Staff Name</th>
+
+                <th>Volunteer ID</th>
+                <th>Volunteer Name</th>
+
+                <th>Adopter ID</th>
+                <th>Adopter Name</th>
+
+                <th>Pet ID</th>
+                <th>Pet Name</th>
+                <th>Breed</th>
               </tr>
             </thead>
 
@@ -290,21 +354,38 @@ export default function EventManager() {
                   }
                 >
                   <td>{event.eventId}</td>
+
                   <td>{event.eventType}</td>
+
                   <td>
                     {event.eventDateTime
                       ? event.eventDateTime.replace("T", " ")
                       : "—"}
                   </td>
-                  <td>{event.location}</td>
+
+                  <td>{event.location || "—"}</td>
+
+                  {/* STAFF */}
                   <td>{event.staffId || "—"}</td>
+                  <td>{event.staffName || "—"}</td>
+
+                  {/* VOLUNTEER */}
                   <td>{event.volunteerId || "—"}</td>
+                  <td>{event.volunteerName || "—"}</td>
+
+                  {/* ADOPTER */}
                   <td>{event.adopterId || "—"}</td>
+                  <td>{event.adopterName || "—"}</td>
+
+                  {/* PET */}
                   <td>{event.petId || "—"}</td>
+                  <td>{event.petName || "—"}</td>
+                  <td>{event.petBreed || "Unknown"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+
         </div>
       </div>
     </div>
