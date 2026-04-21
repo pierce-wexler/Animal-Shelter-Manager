@@ -51,6 +51,14 @@ export default function UserManager() {
     );
   }, [users, viewRole]);
 
+  const userMap = useMemo(() => {
+    const map = {};
+    users.forEach(u => {
+      map[u.userId] = `${u.fname} ${u.lname}`;
+    });
+    return map;
+  }, [users]);
+
   const resetForm = () => {
     setSelectedUserId(null);
     setForm(emptyForm);
@@ -103,7 +111,9 @@ export default function UserManager() {
           ? "/api/admin/users"
           : `/api/admin/users/${form.userId}`;
 
-      const payload = { ...form };
+      const payload = { ...form, roleType: viewRole };
+
+      payload.roleType = viewRole;
 
       delete payload.confirmPassword;
 
@@ -158,8 +168,14 @@ export default function UserManager() {
       <select
         value={viewRole}
         onChange={(e) => {
-          setViewRole(e.target.value);
-          setSelectedUserId(null); // ensures re-render consistency
+          const newRole = e.target.value;
+          setViewRole(newRole);
+          setSelectedUserId(null);
+
+          setForm(prev => ({
+            ...prev,
+            roleType: newRole
+          }));
         }}
         className="custom-input"
       >
@@ -267,13 +283,26 @@ export default function UserManager() {
             </select>
           </>
         ) : (
-          <input
+          <select
             name="supervisor"
-            placeholder="Supervisor User ID"
             value={form.supervisor}
             onChange={handleChange}
             className="custom-input"
-          />
+          >
+            <option value="">Select Supervisor</option>
+
+            {users
+              .filter(u =>
+                ["staff", "admin"].includes(
+                  (u.roleType || "").toLowerCase()
+                )
+              )
+              .map((u) => (
+                <option key={u.userId} value={u.userId}>
+                  #{u.userId} – {u.fname} {u.lname}
+                </option>
+              ))}
+          </select>
         )}
       </div>
 
@@ -363,7 +392,11 @@ export default function UserManager() {
                   )}
 
                   {["staff", "admin", "volunteer"].includes(viewRole) && (
-                    <td>{user.supervisor || "-"}</td>
+                    <td>
+                      {user.supervisor
+                        ? `#${user.supervisor} – ${userMap[user.supervisor] || "Unknown"}`
+                        : "-"}
+                    </td>
                   )}
 
                   <td>{user.roleType}</td>
