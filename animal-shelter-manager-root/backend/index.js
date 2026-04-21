@@ -7,7 +7,6 @@ import mysql from "mysql2/promise";
 // Route Files
 import authRoutes from "./routes/auth.js";
 import adminUsersRoutes from "./routes/adminUsers.js";
-import usersRoutes from "./routes/users.js";
 import petsRoutes from "./routes/pets.js";
 import eventsRoutes from "./routes/events.js";
 import recordsRoutes from "./routes/records.js";
@@ -56,7 +55,6 @@ const pool = mysql.createPool({
 // ==================================================
 app.use("/api", authRoutes(pool));
 app.use("/api", adminUsersRoutes(pool));
-app.use("/api", usersRoutes(pool));
 app.use("/api", kennelRoutes(pool));
 app.use("/api", petsRoutes(pool));
 app.use("/api", eventsRoutes(pool));

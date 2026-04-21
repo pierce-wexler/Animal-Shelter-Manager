@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import "./Manager.css";
 
 export default function UserManager() {
@@ -10,6 +10,7 @@ export default function UserManager() {
     lname: "",
     email: "",
     password: "",
+    confirmPassword: "",
     roleType: "adopter",
     qualificationNotes: "",
     blacklistFlag: "0",
@@ -21,40 +22,18 @@ export default function UserManager() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [viewRole, setViewRole] = useState("adopter");
 
-  // =====================================
-  // FETCH USERS
-  // =====================================
-  const fetchUsers = async (role = form.roleType) => {
+  const fetchUsers = async () => {
     try {
-      let endpoint = "/api/admin/users";
-
-      if (role === "adopter") {
-        endpoint = "/api/admin/users/adopters";
-      } else if (role === "staff" || role === "admin") {
-        endpoint = "/api/admin/users/staff";
-      } else if (role === "volunteer") {
-        endpoint = "/api/admin/users/volunteers";
-      }
-
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/admin/users/full", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
 
-      let data = await res.json();
-
-      if (role === "admin") {
-        data = data.filter((u) => u.roleType === "admin");
-      }
-
-      if (role === "staff") {
-        data = data.filter((u) => u.roleType === "staff");
-      }
-
+      const data = await res.json();
       if (res.ok) setUsers(data);
-
     } catch (err) {
       console.error(err);
     }
@@ -64,66 +43,82 @@ export default function UserManager() {
     fetchUsers();
   }, []);
 
-  // =====================================
-  // RESET
-  // =====================================
+  const filteredUsers = useMemo(() => {
+    return users.filter(
+      (u) =>
+        (u.roleType || "").toLowerCase().trim() ===
+        viewRole.toLowerCase().trim()
+    );
+  }, [users, viewRole]);
+
   const resetForm = () => {
     setSelectedUserId(null);
     setForm(emptyForm);
   };
 
-  // =====================================
-  // INPUT CHANGE
-  // =====================================
   const handleChange = (e) => {
-    const updated = {
+    setForm({
       ...form,
       [e.target.name]: e.target.value,
-    };
-
-    setForm(updated);
-
-    if (e.target.name === "roleType") {
-      resetForm();
-      fetchUsers(e.target.value);
-    }
+    });
   };
 
-  // =====================================
-  // ROW CLICK
-  // =====================================
   const handleRowClick = (user) => {
     setSelectedUserId(user.userId);
 
     setForm({
-      userId: user.userId || "",
-      fname: user.fname || "",
-      lname: user.lname || "",
-      email: user.email || "",
+      userId: user.userId,
+      fname: user.fname,
+      lname: user.lname,
+      email: user.email,
       password: "",
-      roleType: user.roleType || "adopter",
+      confirmPassword: "",
+      roleType: user.roleType,
       qualificationNotes: user.qualificationNotes || "",
-      blacklistFlag:
-        user.blacklistFlag !== undefined
-          ? String(user.blacklistFlag)
-          : "0",
+      blacklistFlag: String(user.blacklistFlag ?? "0"),
       supervisor: user.supervisor || "",
     });
   };
 
-  // =====================================
-  // CRUD ACTIONS
-  // =====================================
   const handleAction = async (method) => {
     try {
       if (method === "DELETE") {
         if (!window.confirm("Delete this user?")) return;
       }
 
+      if (method === "PUT") {
+        if (!window.confirm("Update this user?")) return;
+      }
+
+      if (method === "POST") {
+        if (form.password !== form.confirmPassword) {
+          setIsError(true);
+          setMessage("Passwords do not match");
+          return;
+        }
+      }
+
       const url =
         method === "POST"
           ? "/api/admin/users"
           : `/api/admin/users/${form.userId}`;
+
+      const payload = { ...form };
+
+      delete payload.confirmPassword;
+
+      if (method === "PUT") {
+        delete payload.password;
+      }
+
+      if (payload.roleType !== "adopter") {
+        delete payload.qualificationNotes;
+        delete payload.blacklistFlag;
+      } else {
+        delete payload.supervisor;
+      }
+
+      payload.blacklistFlag = Number(payload.blacklistFlag);
 
       const res = await fetch(url, {
         method,
@@ -132,7 +127,7 @@ export default function UserManager() {
           Authorization: `Bearer ${token}`,
         },
         ...(method !== "DELETE" && {
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         }),
       });
 
@@ -143,18 +138,11 @@ export default function UserManager() {
 
       if (!res.ok) return;
 
-      if (method === "DELETE") {
-        resetForm();
-        fetchUsers();
-        return;
-      }
-
       fetchUsers();
 
-      if (method === "POST") {
-        setTimeout(resetForm, 300);
+      if (method === "POST" || method === "DELETE") {
+        resetForm();
       }
-
     } catch {
       setIsError(true);
       setMessage("Server error");
@@ -163,17 +151,33 @@ export default function UserManager() {
 
   return (
     <div className="manager-card">
-      <h2 className="manager-title">
-        User + Role Management
-      </h2>
+      <h2 className="manager-title">User + Role Management</h2>
+
+      {/* VIEW ROLE */}
+      <label className="input-label">View Role</label>
+      <select
+        value={viewRole}
+        onChange={(e) => {
+          setViewRole(e.target.value);
+          setSelectedUserId(null); // ensures re-render consistency
+        }}
+        className="custom-input"
+      >
+        <option value="adopter">Adopters</option>
+        <option value="staff">Staff</option>
+        <option value="volunteer">Volunteers</option>
+        <option value="admin">Admins</option>
+      </select>
 
       {/* EDIT MODE */}
       {selectedUserId && (
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: "10px"
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            marginBottom: "10px",
+          }}
+        >
           <span style={{ fontWeight: 600, color: "#2563eb" }}>
             Editing User ID: {selectedUserId}
           </span>
@@ -190,10 +194,7 @@ export default function UserManager() {
 
       {/* FORM */}
       <div className="form-container">
-
-        <label className="input-label">
-          Basic Info
-        </label>
+        <label className="input-label">Basic Info</label>
 
         <div className="input-row">
           <input
@@ -221,38 +222,31 @@ export default function UserManager() {
           className="custom-input"
         />
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          className="custom-input"
-        />
+        {!selectedUserId && (
+          <>
+            <input
+              name="password"
+              type="password"
+              placeholder="Password"
+              value={form.password}
+              onChange={handleChange}
+              className="custom-input"
+            />
 
-        {/* ROLE */}
-        <label className="input-label">
-          Account Type
-        </label>
+            <input
+              name="confirmPassword"
+              type="password"
+              placeholder="Confirm Password"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              className="custom-input"
+            />
+          </>
+        )}
 
-        <select
-          name="roleType"
-          value={form.roleType}
-          onChange={handleChange}
-          className="custom-input"
-        >
-          <option value="adopter">Adopter</option>
-          <option value="staff">Staff</option>
-          <option value="volunteer">Volunteer</option>
-          <option value="admin">Admin</option>
-        </select>
+        <label className="input-label">Role Details</label>
 
-        {/* ROLE DETAILS */}
-        <label className="input-label">
-          Role Details
-        </label>
-
-        {form.roleType === "adopter" ? (
+        {viewRole === "adopter" ? (
           <>
             <input
               name="qualificationNotes"
@@ -330,25 +324,23 @@ export default function UserManager() {
                 <th>Last</th>
                 <th>Email</th>
 
-                {form.roleType === "adopter" && (
+                {viewRole === "adopter" && (
                   <>
                     <th>Notes</th>
                     <th>Blacklisted</th>
                   </>
                 )}
 
-                {(form.roleType === "staff" ||
-                  form.roleType === "admin" ||
-                  form.roleType === "volunteer") && (
-                    <th>Supervisor</th>
-                  )}
+                {["staff", "admin", "volunteer"].includes(viewRole) && (
+                  <th>Supervisor</th>
+                )}
 
                 <th>Role</th>
               </tr>
             </thead>
 
             <tbody>
-              {users.map((user) => (
+              {filteredUsers.map((user) => (
                 <tr
                   key={user.userId}
                   onClick={() => handleRowClick(user)}
@@ -363,18 +355,16 @@ export default function UserManager() {
                   <td>{user.lname}</td>
                   <td>{user.email}</td>
 
-                  {form.roleType === "adopter" && (
+                  {viewRole === "adopter" && (
                     <>
                       <td>{user.qualificationNotes}</td>
                       <td>{user.blacklistFlag ? "Yes" : "No"}</td>
                     </>
                   )}
 
-                  {(form.roleType === "staff" ||
-                    form.roleType === "admin" ||
-                    form.roleType === "volunteer") && (
-                      <td>{user.supervisor || "-"}</td>
-                    )}
+                  {["staff", "admin", "volunteer"].includes(viewRole) && (
+                    <td>{user.supervisor || "-"}</td>
+                  )}
 
                   <td>{user.roleType}</td>
                 </tr>

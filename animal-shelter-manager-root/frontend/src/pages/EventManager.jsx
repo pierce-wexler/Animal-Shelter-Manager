@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import "./Manager.css";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import interactionPlugin from "@fullcalendar/interaction";
 
 export default function EventManager() {
   const token = localStorage.getItem("token");
@@ -46,27 +49,50 @@ export default function EventManager() {
 
   const fetchParticipants = async () => {
     try {
-      const [staffRes, volRes, adopRes, petRes] = await Promise.all([
-        fetch("/api/admin/users/staff", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/admin/users/volunteers", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/admin/users/adopters", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/pets", { headers: { Authorization: `Bearer ${token}` } }),
+      const [usersRes, petRes] = await Promise.all([
+        fetch("/api/admin/users/full", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch("/api/pets", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
-      const [staffData, volData, adopData, petData] = await Promise.all([
-        staffRes.json(),
-        volRes.json(),
-        adopRes.json(),
+      const [usersData, petData] = await Promise.all([
+        usersRes.json(),
         petRes.json(),
       ]);
 
-      if (staffRes.ok) setStaff(staffData);
-      if (volRes.ok) setVolunteers(volData);
-      if (adopRes.ok) setAdopters(adopData);
-      if (petRes.ok) setPets(petData);
+      if (usersRes.ok) {
+        const normalize = (r) => (r || "").toLowerCase().trim();
+
+        const staffList = [];
+        const volunteerList = [];
+        const adopterList = [];
+
+        usersData.forEach((u) => {
+          const role = normalize(u.roleType);
+
+          if (role === "staff" || role === "admin") {
+            staffList.push(u);
+          } else if (role === "volunteer") {
+            volunteerList.push(u);
+          } else if (role === "adopter") {
+            adopterList.push(u);
+          }
+        });
+
+        setStaff(staffList);
+        setVolunteers(volunteerList);
+        setAdopters(adopterList);
+      }
+
+      if (petRes.ok) {
+        setPets(petData);
+      }
 
     } catch (err) {
-      console.error(err);
+      console.error("fetchParticipants error:", err);
     }
   };
 
@@ -74,6 +100,7 @@ export default function EventManager() {
     fetchEvents();
     fetchParticipants();
   }, []);
+
 
   // =====================================
   // RESET
@@ -208,15 +235,30 @@ export default function EventManager() {
         </div>
 
         <label className="input-label">Date & Time</label>
+        <div style={{display: "flex", justifyContent: "center"}}>
+          <div style={{ marginTop: "20px", width: "80vw", margin: "0 auto" }}>
+            <FullCalendar
+              height="400px"
+              plugins={[timeGridPlugin, interactionPlugin]}
+              initialView="timeGridWeek"
+              selectable={true}
+              slotMinTime="09:00:00"
+              slotMaxTime="18:00:00"
+              events={events.map(e => ({
+                title: e.eventType,
+                start: e.eventDateTime
+              }))}
 
-        <input
-          type="datetime-local"
-          name="eventDateTime"
-          value={form.eventDateTime}
-          onChange={handleChange}
-          className="custom-input"
-        />
-
+              select={(info) => {
+                // user clicks a time slot
+                setForm({
+                  ...form,
+                  eventDateTime: info.startStr.slice(0, 16)
+                });
+              }}
+            />
+          </div>
+        </div>
         <label className="input-label">Participants</label>
 
         <div className="input-row">

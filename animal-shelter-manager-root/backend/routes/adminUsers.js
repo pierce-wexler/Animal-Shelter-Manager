@@ -8,392 +8,259 @@ const router = express.Router();
 export default (pool) => {
 
   // ==================================================
-  // GET ALL USERS
+  // GET ALL USERS (UNIFIED)
   // ==================================================
-  router.get(
-    "/admin/users",
-    verifyToken,
-    requireAdmin,
-    async (req, res) => {
-      try {
-        const [rows] = await pool.query(`
-          SELECT 
-            u.userId,
-            u.fname,
-            u.lname,
-            u.email,
+  router.get("/admin/users/full", verifyToken, requireAdmin, async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT
+          u.userId,
+          u.fname,
+          u.lname,
+          u.email,
 
-            CASE
-              WHEN s.userId IS NOT NULL AND u.email = 'admin@shelter.com'
-                THEN 'admin'
-              WHEN s.userId IS NOT NULL
-                THEN 'staff'
-              WHEN v.userId IS NOT NULL
-                THEN 'volunteer'
-              WHEN a.userId IS NOT NULL
-                THEN 'adopter'
-              ELSE 'unknown'
-            END AS roleType
+          CASE
+            WHEN s.userId IS NOT NULL AND LOWER(u.email) = 'admin@shelter.com'
+              THEN 'admin'
+            WHEN s.userId IS NOT NULL
+              THEN 'staff'
+            WHEN v.userId IS NOT NULL
+              THEN 'volunteer'
+            WHEN a.userId IS NOT NULL
+              THEN 'adopter'
+            ELSE 'unknown'
+          END AS roleType,
 
-          FROM app_user u
-          LEFT JOIN adopter a ON u.userId = a.userId
-          LEFT JOIN staff s ON u.userId = s.userId
-          LEFT JOIN volunteer v ON u.userId = v.userId
-          ORDER BY u.userId ASC
-        `);
+          a.qualificationNotes,
+          a.blacklistFlag,
 
-        res.json(rows);
+          COALESCE(s.supervisor, v.supervisor) AS supervisor
 
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Failed to fetch users" });
-      }
+        FROM app_user u
+        LEFT JOIN adopter a ON u.userId = a.userId
+        LEFT JOIN staff s ON u.userId = s.userId
+        LEFT JOIN volunteer v ON u.userId = v.userId
+
+        ORDER BY u.userId ASC
+      `);
+
+      res.json(rows);
+
+    } catch (err) {
+      console.error("GET USERS ERROR:", err);
+      res.status(500).json({ error: "Failed to fetch users" });
     }
-  );
-
-  // ==================================================
-  // GET ONLY ADOPTERS
-  // JOIN app_user + adopter
-  // ==================================================
-  router.get(
-    "/admin/users/adopters",
-    verifyToken,
-    requireAdmin,
-    async (req, res) => {
-      try {
-        const [rows] = await pool.query(`
-          SELECT
-            u.userId,
-            u.fname,
-            u.lname,
-            u.email,
-            a.qualificationNotes,
-            a.blacklistFlag
-          FROM app_user u
-          INNER JOIN adopter a
-            ON u.userId = a.userId
-          ORDER BY u.userId ASC
-        `);
-
-        res.json(rows);
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to fetch adopters",
-        });
-      }
-    }
-  );
-
-  // ==================================================
-  // GET ONLY STAFF / ADMINS
-  // JOIN app_user + staff
-  // ==================================================
-  router.get(
-    "/admin/users/staff",
-    verifyToken,
-    requireAdmin,
-    async (req, res) => {
-      try {
-        const [rows] = await pool.query(`
-          SELECT
-            u.userId,
-            u.fname,
-            u.lname,
-            u.email,
-            s.supervisor,
-
-            CASE
-              WHEN u.email = 'admin@shelter.com'
-                THEN 'admin'
-              ELSE 'staff'
-            END AS roleType
-
-          FROM app_user u
-          INNER JOIN staff s
-            ON u.userId = s.userId
-          ORDER BY u.userId ASC
-        `);
-
-        res.json(rows);
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to fetch staff",
-        });
-      }
-    }
-  );
-
-  // ==================================================
-  // GET ONLY VOLUNTEERS
-  // JOIN app_user + volunteer
-  // ==================================================
-  router.get(
-    "/admin/users/volunteers",
-    verifyToken,
-    requireAdmin,
-    async (req, res) => {
-      try {
-        const [rows] = await pool.query(`
-          SELECT
-            u.userId,
-            u.fname,
-            u.lname,
-            u.email,
-            v.supervisor
-          FROM app_user u
-          INNER JOIN volunteer v
-            ON u.userId = v.userId
-          ORDER BY u.userId ASC
-        `);
-
-        res.json(rows);
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to fetch volunteers",
-        });
-      }
-    }
-  );
+  });
 
   // ==================================================
   // CREATE USER
   // ==================================================
-  router.post(
-    "/admin/users",
-    verifyToken,
-    requireAdmin,
-    async (req, res) => {
-      const {
-        fname,
-        lname,
-        email,
-        password,
+  router.post("/admin/users", verifyToken, requireAdmin, async (req, res) => {
+    const {
+      fname,
+      lname,
+      email,
+      password,
+      roleType,
+      qualificationNotes,
+      blacklistFlag,
+      supervisor
+    } = req.body;
+
+    if (!fname || !lname || !email || !password || !roleType) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const conn = await pool.getConnection();
+
+    try {
+      await conn.beginTransaction();
+
+      const hash = await bcrypt.hash(password, 10);
+
+      const [result] = await conn.query(
+        `INSERT INTO app_user (fname, lname, email, passwordHash)
+         VALUES (?, ?, ?, ?)`,
+        [fname, lname, email, hash]
+      );
+
+      const userId = result.insertId;
+
+      await insertRole(conn, userId, {
         roleType,
         qualificationNotes,
         blacklistFlag,
-        supervisor,
-      } = req.body;
+        supervisor
+      });
 
-      if (!fname || !lname || !email || !password || !roleType) {
-        return res.status(400).json({
-          error: "Missing required fields",
-        });
+      await conn.commit();
+
+      res.status(201).json({ message: "User created successfully" });
+
+    } catch (err) {
+      await conn.rollback();
+      console.error("CREATE USER ERROR:", err);
+
+      if (err.code === "ER_DUP_ENTRY") {
+        return res.status(400).json({ error: "Email already exists" });
       }
 
-      const conn = await pool.getConnection();
+      res.status(500).json({ error: "Failed to create user" });
 
-      try {
-        const hash = await bcrypt.hash(password, 10);
-
-        await conn.beginTransaction();
-
-        const [result] = await conn.query(
-          `INSERT INTO app_user
-          (fname, lname, email, passwordHash)
-          VALUES (?, ?, ?, ?)`,
-          [fname, lname, email, hash]
-        );
-
-        const userId = result.insertId;
-
-        if (roleType === "adopter") {
-          await conn.query(
-            `INSERT INTO adopter
-            (userId, qualificationNotes, blacklistFlag)
-            VALUES (?, ?, ?)`,
-            [
-              userId,
-              qualificationNotes || "",
-              blacklistFlag || 0,
-            ]
-          );
-
-        } else if (
-          roleType === "staff" ||
-          roleType === "admin"
-        ) {
-          await conn.query(
-            `INSERT INTO staff
-            (userId, supervisor)
-            VALUES (?, ?)`,
-            [userId, supervisor || null]
-          );
-
-        } else if (roleType === "volunteer") {
-          await conn.query(
-            `INSERT INTO volunteer
-            (userId, supervisor)
-            VALUES (?, ?)`,
-            [userId, supervisor || null]
-          );
-
-        } else {
-          throw new Error("Invalid role");
-        }
-
-        await conn.commit();
-
-        res.status(201).json({
-          message: "User created successfully",
-        });
-
-      } catch (err) {
-        await conn.rollback();
-        console.error(err);
-
-        if (err.code === "ER_DUP_ENTRY") {
-          return res.status(400).json({
-            error: "Email already exists",
-          });
-        }
-
-        res.status(500).json({
-          error: "Failed to create user",
-        });
-
-      } finally {
-        conn.release();
-      }
+    } finally {
+      conn.release();
     }
-  );
+  });
 
   // ==================================================
   // UPDATE USER
   // ==================================================
-  router.put(
-    "/admin/users/:id",
-    verifyToken,
-    requireAdmin,
-    async (req, res) => {
-      const { id } = req.params;
-      const { fname, lname, email, password } = req.body;
+  router.put("/admin/users/:id", verifyToken, requireAdmin, async (req, res) => {
+    const { id } = req.params;
 
-      try {
-        const fields = [];
-        const values = [];
+    const {
+      fname,
+      lname,
+      email,
+      password,
+      roleType,
+      qualificationNotes,
+      blacklistFlag,
+      supervisor
+    } = req.body;
 
-        if (fname) {
-          fields.push("fname = ?");
-          values.push(fname);
-        }
+    const conn = await pool.getConnection();
 
-        if (lname) {
-          fields.push("lname = ?");
-          values.push(lname);
-        }
+    try {
+      await conn.beginTransaction();
 
-        if (email) {
-          fields.push("email = ?");
-          values.push(email);
-        }
+      // --- UPDATE BASE USER ---
+      const fields = [];
+      const values = [];
 
-        if (password) {
-          const hash = await bcrypt.hash(password, 10);
-          fields.push("passwordHash = ?");
-          values.push(hash);
-        }
+      if (fname) { fields.push("fname = ?"); values.push(fname); }
+      if (lname) { fields.push("lname = ?"); values.push(lname); }
+      if (email) { fields.push("email = ?"); values.push(email); }
 
-        if (fields.length === 0) {
-          return res.status(400).json({
-            error: "No fields provided",
-          });
-        }
+      if (password) {
+        const hash = await bcrypt.hash(password, 10);
+        fields.push("passwordHash = ?");
+        values.push(hash);
+      }
 
+      if (fields.length > 0) {
         values.push(id);
-
-        const [result] = await pool.query(
-          `UPDATE app_user
-           SET ${fields.join(", ")}
-           WHERE userId = ?`,
+        await conn.query(
+          `UPDATE app_user SET ${fields.join(", ")} WHERE userId = ?`,
           values
         );
-
-        if (result.affectedRows === 0) {
-          return res.status(404).json({
-            error: "User not found",
-          });
-        }
-
-        res.json({
-          message: "User updated successfully",
-        });
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to update user",
-        });
       }
+
+      // --- RESET ROLE ---
+      await clearRoles(conn, id);
+
+      // --- INSERT NEW ROLE ---
+      await insertRole(conn, id, {
+        roleType,
+        qualificationNotes,
+        blacklistFlag,
+        supervisor
+      });
+
+      await conn.commit();
+
+      res.json({ message: "User updated successfully" });
+
+    } catch (err) {
+      await conn.rollback();
+      console.error("UPDATE USER ERROR:", err);
+      res.status(500).json({ error: "Failed to update user" });
+
+    } finally {
+      conn.release();
     }
-  );
+  });
 
   // ==================================================
   // DELETE USER
   // ==================================================
-  router.delete(
-    "/admin/users/:id",
-    verifyToken,
-    requireAdmin,
-    async (req, res) => {
-      const { id } = req.params;
-      const conn = await pool.getConnection();
+  router.delete("/admin/users/:id", verifyToken, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const conn = await pool.getConnection();
 
-      try {
-        await conn.beginTransaction();
+    try {
+      await conn.beginTransaction();
 
-        await conn.query(
-          "DELETE FROM adopter WHERE userId = ?",
-          [id]
-        );
+      await clearRoles(conn, id);
 
-        await conn.query(
-          "DELETE FROM volunteer WHERE userId = ?",
-          [id]
-        );
+      const [result] = await conn.query(
+        "DELETE FROM app_user WHERE userId = ?",
+        [id]
+      );
 
-        await conn.query(
-          "DELETE FROM staff WHERE userId = ?",
-          [id]
-        );
-
-        const [result] = await conn.query(
-          "DELETE FROM app_user WHERE userId = ?",
-          [id]
-        );
-
-        if (result.affectedRows === 0) {
-          await conn.rollback();
-
-          return res.status(404).json({
-            error: "User not found",
-          });
-        }
-
-        await conn.commit();
-
-        res.json({
-          message: "User deleted successfully",
-        });
-
-      } catch (err) {
+      if (result.affectedRows === 0) {
         await conn.rollback();
-        console.error(err);
-
-        res.status(500).json({
-          error: "Failed to delete user",
-        });
-
-      } finally {
-        conn.release();
+        return res.status(404).json({ error: "User not found" });
       }
+
+      await conn.commit();
+
+      res.json({ message: "User deleted successfully" });
+
+    } catch (err) {
+      await conn.rollback();
+      console.error("DELETE USER ERROR:", err);
+      res.status(500).json({ error: "Failed to delete user" });
+
+    } finally {
+      conn.release();
     }
-  );
+  });
+
+  // ==================================================
+  // HELPER: CLEAR ROLES
+  // ==================================================
+  const clearRoles = async (conn, userId) => {
+    await conn.query("DELETE FROM adopter WHERE userId = ?", [userId]);
+    await conn.query("DELETE FROM staff WHERE userId = ?", [userId]);
+    await conn.query("DELETE FROM volunteer WHERE userId = ?", [userId]);
+  };
+
+  // ==================================================
+  // HELPER: INSERT ROLE
+  // ==================================================
+  const insertRole = async (conn, userId, {
+    roleType,
+    qualificationNotes,
+    blacklistFlag,
+    supervisor
+  }) => {
+
+    if (roleType === "adopter") {
+      await conn.query(
+        `INSERT INTO adopter (userId, qualificationNotes, blacklistFlag)
+         VALUES (?, ?, ?)`,
+        [userId, qualificationNotes || "", blacklistFlag || 0]
+      );
+
+    } else if (roleType === "staff" || roleType === "admin") {
+      await conn.query(
+        `INSERT INTO staff (userId, supervisor)
+         VALUES (?, ?)`,
+        [userId, supervisor || null]
+      );
+
+    } else if (roleType === "volunteer") {
+      await conn.query(
+        `INSERT INTO volunteer (userId, supervisor)
+         VALUES (?, ?)`,
+        [userId, supervisor || null]
+      );
+
+    } else {
+      throw new Error("Invalid role type");
+    }
+  };
 
   return router;
 };

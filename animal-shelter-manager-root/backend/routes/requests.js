@@ -39,6 +39,67 @@ export default (pool) => {
     }
   );
 
+  router.get(
+    "/adoption-requests/full",
+    verifyToken,
+    async (req, res) => {
+      try {
+        const [rows] = await pool.query(`
+          SELECT
+            ar.requestId,
+            ar.submitterId,
+            ar.petId,
+            ar.description,
+            ar.status,
+            ar.fufilledBy,
+            ar.adoptionType,
+
+            -- SUBMITTER (adopter name)
+            CONCAT(sub.fname, ' ', sub.lname) AS submitterName,
+
+            -- STAFF (fulfilledBy)
+            CONCAT(st.fname, ' ', st.lname) AS staffName,
+
+            -- PET
+            p.name AS petName,
+            p.breed AS petBreed,
+
+            -- ADOPTER DETAILS
+            ad.blacklistFlag,
+            ad.qualificationNotes
+
+          FROM adoption_request ar
+
+          -- SUBMITTER USER
+          LEFT JOIN app_user sub
+            ON ar.submitterId = sub.userId
+
+          -- STAFF USER
+          LEFT JOIN app_user st
+            ON ar.fufilledBy = st.userId
+
+          -- ADOPTER (extra fields)
+          LEFT JOIN adopter ad
+            ON ar.submitterId = ad.userId
+
+          -- PET
+          LEFT JOIN pet p
+            ON ar.petId = p.petId
+
+          ORDER BY ar.requestId DESC;
+        `);
+
+        res.json(rows);
+
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({
+          error: "Failed to fetch requests",
+        });
+      }
+    }
+  );
+
   // ==================================================
   // GET SINGLE REQUEST
   // ==================================================
