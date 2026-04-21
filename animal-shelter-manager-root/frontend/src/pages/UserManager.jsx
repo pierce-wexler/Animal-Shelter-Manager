@@ -20,6 +20,7 @@ export default function UserManager() {
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   // =====================================
   // FETCH USERS BASED ON ROLE TYPE
@@ -61,6 +62,7 @@ export default function UserManager() {
       }
 
       if (res.ok) {
+        setSelectedUserId(null);
         setUsers(data);
       }
 
@@ -85,7 +87,12 @@ export default function UserManager() {
     setForm(updated);
 
     if (e.target.name === "roleType") {
+      setSelectedUserId(null);
       fetchUsers(e.target.value);
+    }
+
+    if (e.target.name === "userId") {
+      setSelectedUserId(null);
     }
   };
 
@@ -118,6 +125,7 @@ export default function UserManager() {
       setMessage(data.message || data.error);
 
       if (res.ok) {
+        setSelectedUserId(null);
         fetchUsers();
       }
 
@@ -131,6 +139,8 @@ export default function UserManager() {
   // ROW CLICK → AUTOFILL FORM
   // =====================================
   const handleRowClick = (user) => {
+    setSelectedUserId(user.userId);
+
     setForm({
       userId: user.userId || "",
       fname: user.fname || "",
@@ -279,6 +289,7 @@ export default function UserManager() {
         <button
           onClick={() => handleAction("PUT")}
           className="btn btn-update"
+          disabled={!selectedUserId}
         >
           Update
         </button>
@@ -286,6 +297,7 @@ export default function UserManager() {
         <button
           onClick={() => handleAction("DELETE")}
           className="btn btn-delete"
+          disabled={!selectedUserId}
         >
           Delete
         </button>
@@ -322,8 +334,8 @@ export default function UserManager() {
               {(form.roleType === "staff" ||
                 form.roleType === "admin" ||
                 form.roleType === "volunteer") && (
-                <th>Supervisor</th>
-              )}
+                  <th>Supervisor</th>
+                )}
 
               <th>Role</th>
             </tr>
@@ -334,6 +346,9 @@ export default function UserManager() {
               <tr
                 key={user.userId}
                 onClick={() => handleRowClick(user)}
+                className={
+                  selectedUserId === user.userId ? "selected-row" : ""
+                }
                 style={{ cursor: "pointer" }}
               >
                 <td>{user.userId}</td>
@@ -357,10 +372,10 @@ export default function UserManager() {
                 {(form.roleType === "staff" ||
                   form.roleType === "admin" ||
                   form.roleType === "volunteer") && (
-                  <td>
-                    {user.supervisor || "-"}
-                  </td>
-                )}
+                    <td>
+                      {user.supervisor || "-"}
+                    </td>
+                  )}
 
                 <td>
                   {user.roleType ||

@@ -45,6 +45,15 @@
   gap: 10px;
 }
 
+.data-table tbody tr:hover {
+  background-color: #eff6ff;
+}
+
+.selected-row {
+  background-color: #bfdbfe !important;
+  transition: background 0.2s ease;
+}
+
 .custom-input {
   padding: 12px;
   border: 1px solid #e2e8f0;
@@ -88,12 +97,34 @@ textarea.custom-input {
   transition: transform 0.12s ease, filter 0.2s ease;
 }
 
+.btn-thin {
+  padding: 6px 10px;          /* smaller padding */
+  border: none;
+  border-radius: 8px;         /* slightly tighter radius */
+  font-weight: 600;           /* slightly lighter */
+  font-size: 0.85rem;         /* smaller text */
+  cursor: pointer;
+  color: white;
+  transition: transform 0.12s ease, filter 0.2s ease;
+}
+
+.btn-inline {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+
 .btn:hover { filter: brightness(92%); }
 .btn:active { transform: scale(0.98); }
 
 .btn-create { background: #10b981; }
 .btn-update { background: #3b82f6; }
 .btn-delete { background: #ef4444; }
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /* ==================================================
    STATUS MESSAGE
@@ -164,6 +195,22 @@ textarea.custom-input {
 .data-table td:nth-child(10) {
   white-space: normal;
   max-width: 200px;
+}
+
+.table-container {
+  max-height: 350px;
+  overflow-y: auto;
+  margin-top: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+/* sticky header (optional but nice) */
+.table-container thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  z-index: 1;
 }
 
 /* ================= KENNEL TABLES ================= */

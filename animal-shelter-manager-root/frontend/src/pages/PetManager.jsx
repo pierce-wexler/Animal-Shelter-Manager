@@ -4,6 +4,7 @@ import "./Manager.css";
 
 export default function PetManager() {
   const token = localStorage.getItem("token");
+  const [imageVersion, setImageVersion] = useState(Date.now());
 
   // ================= PET STATE =================
   const [petForm, setPetForm] = useState({
@@ -26,6 +27,10 @@ export default function PetManager() {
 
   const [petMessage, setPetMessage] = useState("");
   const [petIsError, setPetIsError] = useState(false);
+
+  // 🔥 NEW SELECTION STATE
+  const [selectedPetId, setSelectedPetId] = useState(null);
+  const [selectedKennelId, setSelectedKennelId] = useState(null);
 
   // ================= KENNEL STATE =================
   const [kennelForm, setKennelForm] = useState({
@@ -79,6 +84,7 @@ export default function PetManager() {
   // ================= HANDLERS =================
   const handlePetChange = (e) => {
     const { name, value } = e.target;
+
     let updated = { ...petForm, [name]: value };
 
     if (name === "dateOfBirth") {
@@ -89,17 +95,30 @@ export default function PetManager() {
       updated.daysInShelter = calcDays(value);
     }
 
+    // 🔥 CLEAR SELECTION IF USER TYPES ID
+    if (name === "petId") {
+      setSelectedPetId(null);
+    }
+
     setPetForm(updated);
   };
 
   const handleKennelChange = (e) => {
-    setKennelForm({
+    const updated = {
       ...kennelForm,
       [e.target.name]: e.target.value,
-    });
+    };
+
+    if (e.target.name === "kennelId") {
+      setSelectedKennelId(null);
+    }
+
+    setKennelForm(updated);
   };
 
   const handleRowClick = (pet) => {
+    setSelectedPetId(pet.petId); // 🔥 highlight
+
     setPetForm({
       ...pet,
       dateOfBirth: pet.dateOfBirth?.split("T")[0] || "",
@@ -132,7 +151,26 @@ export default function PetManager() {
     setPetIsError(!res.ok);
     setPetMessage(data.message || data.error);
 
-    if (res.ok) fetchPets();
+    if (res.ok) {
+      setSelectedPetId(null);
+      setPetForm({
+        petId: "",
+        name: "",
+        dateOfBirth: "",
+        age: "",
+        sex: "",
+        kennelId: "",
+        breed: "",
+        behavioralNotes: "",
+        dateOfAdmittance: "",
+        daysInShelter: "",
+        specialNotes: "",
+        status: "Available",
+      });
+
+
+      fetchPets();
+    }
   };
 
   // ================= KENNEL ACTIONS =================
@@ -160,7 +198,17 @@ export default function PetManager() {
     setKennelIsError(!res.ok);
     setKennelMessage(data.message || data.error);
 
-    if (res.ok) fetchKennels();
+    if (res.ok) {
+      setSelectedKennelId(null);
+      setKennelForm({
+        kennelId: "",
+        roomNo: "",
+        occupationStatus: "0",
+      });
+
+
+      fetchKennels();
+    }
   };
 
   const handleImageUpload = async (file) => {
@@ -172,55 +220,66 @@ export default function PetManager() {
     const formData = new FormData();
     formData.append("image", file);
 
-    try {
-      const res = await fetch(`/api/pets/${petForm.petId}/image`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+    const res = await fetch(`/api/pets/${petForm.petId}/image`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
 
-      const data = await res.json();
-      alert(data.message);
-    } catch {
-      alert("Upload failed");
-    }
+    const data = await res.json();
+    alert(data.message);
+
+    setImageVersion(Date.now());
   };
 
   return (
     <div className="multi-manager-container">
       {/* ================= KENNEL SECTION ================= */}
       <div className="manager-card kennel-section">
-        <h2 className="manager-title">Kennel Management</h2>
+        <h2 className="manager-title" style={{ margin: 0 }}>
+          Kennel Management
+        </h2>
+
+
+        {selectedKennelId && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: "12px", justifyContent: "space-between",
+            marginBottom: "10px"
+          }}>
+            <span style={{ fontWeight: 600, color: "#2563eb" }}>
+              Editing Kennel ID: {selectedKennelId}
+            </span>
+
+            <button
+              className="btn"
+              style={{ background: "#6b7280" }}
+              onClick={() => {
+                setSelectedKennelId(null);
+                setKennelForm({
+                  kennelId: "",
+                  roomNo: "",
+                  occupationStatus: "0",
+                });
+              }}
+            >
+              Stop Editing
+            </button>
+          </div>
+        )}
+
 
         <div className="form-container">
-
-          <label className="input-label">
-            Kennel ID (Required for Update/Delete)
-          </label>
-          <input
-            name="kennelId"
-            placeholder="Auto-fill by clicking table row"
-            value={kennelForm.kennelId}
-            onChange={handleKennelChange}
-            className="custom-input"
-          />
-
-          <label className="input-label">
-            Room Number (Required)
-          </label>
+          <label className="input-label">Room Number</label>
           <input
             name="roomNo"
-            placeholder="e.g. 101"
             value={kennelForm.roomNo}
             onChange={handleKennelChange}
             className="custom-input"
           />
 
-          <label className="input-label">
-            Occupation Status
-          </label>
+          <label className="input-label">Occupation Status</label>
           <select
             name="occupationStatus"
             value={kennelForm.occupationStatus}
@@ -230,40 +289,19 @@ export default function PetManager() {
             <option value="0">Vacant</option>
             <option value="1">Occupied</option>
           </select>
-
         </div>
 
-        {/* ACTION BUTTONS */}
         <div className="button-group">
-          <button
-            onClick={() => handleKennelAction("POST")}
-            className="btn btn-create"
-          >
-            Create
-          </button>
-
-          <button
-            onClick={() => handleKennelAction("PUT")}
-            className="btn btn-update"
-          >
-            Update
-          </button>
-
-          <button
-            onClick={() => handleKennelAction("DELETE")}
-            className="btn btn-delete"
-          >
-            Delete
-          </button>
+          <button onClick={() => handleKennelAction("POST")} className="btn btn-create" disabled={!!selectedKennelId}>Create</button>
+          <button onClick={() => handleKennelAction("PUT")} className="btn btn-update" disabled={!selectedKennelId}>Update</button>
+          <button onClick={() => handleKennelAction("DELETE")} className="btn btn-delete" disabled={!selectedKennelId}>Delete</button>
         </div>
 
-        {/* STATUS MESSAGE */}
         {kennelMessage && (
           <div className={`status-message ${kennelIsError ? "error" : "success"}`}>
             {kennelMessage}
           </div>
         )}
-
         {/* TABLE */}
         <div style={{ marginTop: "25px" }}>
           <h3>Click row to edit</h3>
@@ -281,13 +319,14 @@ export default function PetManager() {
               {kennels.map((k) => (
                 <tr
                   key={k.kennelId}
-                  onClick={() =>
+                  onClick={() => {
+                    setSelectedKennelId(k.kennelId);
                     setKennelForm({
                       kennelId: k.kennelId,
                       roomNo: k.roomNo,
                       occupationStatus: String(k.occupationStatus),
-                    })
-                  }
+                    });
+                  }}
                   style={{ cursor: "pointer" }}
                 >
                   <td>{k.kennelId}</td>
@@ -306,70 +345,67 @@ export default function PetManager() {
 
       {/* ================= PET SECTION ================= */}
       <div className="manager-card pet-section">
-        <h2 className="manager-title">Pet Manager</h2>
-        {/* ================= PET FORM ================= */}
+        <h2 className="manager-title" style={{ margin: 0 }}>
+          Pet Manager
+        </h2>
+
+        {selectedPetId && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: "12px", justifyContent: "space-between",
+            marginBottom: "10px"
+          }}>
+            <span style={{ fontWeight: 600, color: "#2563eb" }}>
+              Editing Pet ID: {selectedPetId}
+            </span>
+
+            <button
+              className="btn-thin"
+              style={{ background: "#6b7280" }}
+              onClick={() => {
+                setSelectedPetId(null);
+                setPetForm({
+                  petId: "",
+                  name: "",
+                  dateOfBirth: "",
+                  age: "",
+                  sex: "",
+                  kennelId: "",
+                  breed: "",
+                  behavioralNotes: "",
+                  dateOfAdmittance: "",
+                  daysInShelter: "",
+                  specialNotes: "",
+                  status: "Available",
+                });
+              }}
+            >
+              Stop Editing
+            </button>
+          </div>
+        )}
+
+
+        {/* FORM */}
         <div className="form-container">
 
-          <label className="input-label">
-            Pet ID (Required for Update/Delete)
-          </label>
-          <input
-            name="petId"
-            placeholder="Auto-filled when clicking a row"
-            value={petForm.petId}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
+          <label className="input-label">Name</label>
+          <input name="name" value={petForm.name} onChange={handlePetChange} className="custom-input" />
 
-          <label className="input-label">Name (Required)</label>
-          <input
-            name="name"
-            value={petForm.name}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
+          <label className="input-label">Date of Birth</label>
+          <input type="date" name="dateOfBirth" value={petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
 
-          <label className="input-label">
-            Date of Birth (Optional — auto calculates age)
-          </label>
-          <input
-            type="date"
-            name="dateOfBirth"
-            value={petForm.dateOfBirth}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
-
-          <label className="input-label">
-            Age (Optional — only used if DOB is empty)
-          </label>
-          <input
-            name="age"
-            value={petForm.age}
-            disabled={!!petForm.dateOfBirth}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
+          <label className="input-label">Age</label>
+          <input name="age" value={petForm.age} disabled={!!petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Sex</label>
-          <select
-            name="sex"
-            value={petForm.sex}
-            onChange={handlePetChange}
-            className="custom-input"
-          >
+          <select name="sex" value={petForm.sex} onChange={handlePetChange} className="custom-input">
             <option value="">Select</option>
             <option value="M">Male</option>
             <option value="F">Female</option>
           </select>
 
           <label className="input-label">Kennel</label>
-          <select
-            name="kennelId"
-            value={petForm.kennelId}
-            onChange={handlePetChange}
-            className="custom-input"
-          >
+          <select name="kennelId" value={petForm.kennelId} onChange={handlePetChange} className="custom-input">
             <option value="">Select Kennel</option>
             {kennels.map((k) => (
               <option key={k.kennelId} value={k.kennelId}>
@@ -379,113 +415,49 @@ export default function PetManager() {
           </select>
 
           <label className="input-label">Breed</label>
-          <input
-            name="breed"
-            value={petForm.breed}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
+          <input name="breed" value={petForm.breed} onChange={handlePetChange} className="custom-input" />
 
-          <label className="input-label">
-            Behavioral Notes (Optional)
-          </label>
-          <textarea
-            name="behavioralNotes"
-            value={petForm.behavioralNotes}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
+          <label className="input-label">Behavioral Notes</label>
+          <textarea name="behavioralNotes" value={petForm.behavioralNotes} onChange={handlePetChange} className="custom-input" />
 
-          <label className="input-label">
-            Date of Admittance (Optional — auto calculates days)
-          </label>
-          <input
-            type="date"
-            name="dateOfAdmittance"
-            value={petForm.dateOfAdmittance}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
+          <label className="input-label">Date of Admittance</label>
+          <input type="date" name="dateOfAdmittance" value={petForm.dateOfAdmittance} onChange={handlePetChange} className="custom-input" />
 
-          <label className="input-label">
-            Days in Shelter (Auto-calculated)
-          </label>
-          <input
-            name="daysInShelter"
-            value={petForm.daysInShelter}
-            disabled
-            className="custom-input"
-          />
+          <label className="input-label">Days in Shelter</label>
+          <input name="daysInShelter" value={petForm.daysInShelter} disabled className="custom-input" />
 
-          <label className="input-label">
-            Special Notes (Optional)
-          </label>
-          <textarea
-            name="specialNotes"
-            value={petForm.specialNotes}
-            onChange={handlePetChange}
-            className="custom-input"
-          />
+          <label className="input-label">Special Notes</label>
+          <textarea name="specialNotes" value={petForm.specialNotes} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Status</label>
-          <select
-            name="status"
-            value={petForm.status}
-            onChange={handlePetChange}
-            className="custom-input"
-          >
+          <select name="status" value={petForm.status} onChange={handlePetChange} className="custom-input">
             <option value="Available">Available</option>
             <option value="Adopted/Fostered">Adopted/Fostered</option>
           </select>
+
           <label className="input-label">Pet Image</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => handleImageUpload(e.target.files[0])}
-            className="custom-input"
-          />
+          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e.target.files[0])} className="custom-input" />
+
           {petForm.petId && (
             <img
-              src={`/uploads/pet-${petForm.petId}.jpg`}
-              alt="pet"
-              style={{
-                width: "120px",
-                marginTop: "10px",
-                borderRadius: "8px",
-              }}
+              src={`http://localhost:5000/uploads/pet-${petForm.petId}.jpg?v=${imageVersion}`}
+              alt="preview"
+              className="pet-image"
               onError={(e) => {
+                e.target.onerror = null;
                 e.target.src = "/placeholder.jpg";
               }}
             />
           )}
-
         </div>
 
-        {/* ================= PET ACTION BUTTONS ================= */}
+        {/* BUTTONS */}
         <div className="button-group">
-          <button
-            onClick={() => handlePetAction("POST")}
-            className="btn btn-create"
-          >
-            Create
-          </button>
-
-          <button
-            onClick={() => handlePetAction("PUT")}
-            className="btn btn-update"
-          >
-            Update
-          </button>
-
-          <button
-            onClick={() => handlePetAction("DELETE")}
-            className="btn btn-delete"
-          >
-            Delete
-          </button>
+          <button onClick={() => handlePetAction("POST")} className="btn btn-create" disabled={!!selectedPetId}>Create</button>
+          <button onClick={() => handlePetAction("PUT")} className="btn btn-update" disabled={!selectedPetId}>Update</button>
+          <button onClick={() => handlePetAction("DELETE")} className="btn btn-delete" disabled={!selectedPetId}>Delete</button>
         </div>
 
-        {/* STATUS MESSAGE */}
         {petMessage && (
           <div className={`status-message ${petIsError ? "error" : "success"}`}>
             {petMessage}
@@ -555,7 +527,7 @@ export default function PetManager() {
           </table>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
