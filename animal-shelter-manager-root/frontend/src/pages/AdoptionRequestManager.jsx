@@ -43,6 +43,10 @@ export default function AdoptionRequestManager() {
     }
   };
 
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
   // =====================================
   // APPROVE
   // =====================================

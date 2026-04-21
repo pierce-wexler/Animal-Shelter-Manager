@@ -328,5 +328,144 @@ export default (pool) => {
     }
   );
 
+  router.put("/adoption-requests/:id/approve", verifyToken, async (req, res) => {
+    const connection = await pool.getConnection();
+
+    try {
+      const requestId = req.params.id;
+      const staffId = req.user.userId;
+
+      await connection.beginTransaction();
+
+      // =========================
+      // GET REQUEST
+      // =========================
+      const [rows] = await connection.query(
+        "SELECT * FROM adoption_request WHERE requestId = ?",
+        [requestId]
+      );
+
+      if (rows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const request = rows[0];
+
+      if (request.status !== "pending") {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "Request already processed",
+        });
+      }
+
+      // =========================
+      // UPDATE REQUEST
+      // =========================
+      await connection.query(
+        `
+      UPDATE adoption_request
+      SET status = 'approved',
+          fufilledBy = ?
+      WHERE requestId = ?
+      `,
+        [staffId, requestId]
+      );
+
+      // =========================
+      // CREATE BASE RECORD
+      // =========================
+      const [recordResult] = await connection.query(
+        `
+      INSERT INTO record
+      (petId, recordType, notes, dateOfRecord)
+      VALUES (?, 'adoption', 'Adoption approved', NOW())
+      `,
+        [request.petId]
+      );
+
+      const recordId = recordResult.insertId;
+
+      // =========================
+      // CREATE ADOPTION RECORD
+      // =========================
+      await connection.query(
+        `
+      INSERT INTO adoption_record
+      (recordId, adopterId, staffId)
+      VALUES (?, ?, ?)
+      `,
+        [
+          recordId,
+          request.submitterId,
+          staffId
+        ]
+      );
+
+      // =========================
+      // UPDATE PET STATUS
+      // =========================
+      await connection.query(
+        `
+      UPDATE pet
+      SET status = 'adopted'
+      WHERE petId = ?
+      `,
+        [request.petId]
+      );
+
+      await connection.commit();
+
+      res.json({ message: "Request approved and record created" });
+
+    } catch (err) {
+      await connection.rollback();
+      console.error(err);
+      res.status(500).json({ error: "Approval failed" });
+    } finally {
+      connection.release();
+    }
+  });
+
+  router.put("/adoption-requests/:id/deny", verifyToken, async (req, res) => {
+    try {
+      const requestId = req.params.id;
+      const staffId = req.user.userId;
+
+      const [rows] = await pool.query(
+        "SELECT * FROM adoption_request WHERE requestId = ?",
+        [requestId]
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const request = rows[0];
+
+      if (request.status !== "pending") {
+        return res.status(400).json({
+          error: "Request already processed",
+        });
+      }
+
+      await pool.query(
+        `
+      UPDATE adoption_request
+      SET status = 'denied',
+          fufilledBy = ?
+      WHERE requestId = ?
+      `,
+        [staffId, requestId]
+      );
+
+      res.json({ message: "Request denied" });
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Deny failed" });
+    }
+  });
+
   return router;
 };
