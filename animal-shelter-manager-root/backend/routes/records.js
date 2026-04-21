@@ -79,17 +79,11 @@ export default (pool) => {
         LEFT JOIN foster_record fr
           ON r.recordId = fr.recordId
 
-        LEFT JOIN adopter a
-          ON ar.adopterId = a.userId
-
         LEFT JOIN app_user au
-          ON a.userId = au.userId
-
-        LEFT JOIN staff s
-          ON ar.staffId = s.userId
+          ON ar.adopterId = au.userId
 
         LEFT JOIN app_user su
-          ON s.userId = su.userId
+          ON ar.staffId = su.userId
 
         ORDER BY r.recordId DESC
       `);
