@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import "./Manager.css";
 
 export default function AdoptionRequestManager() {
   const token = localStorage.getItem("token");
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     requestId: "",
     submitterId: "",
     petId: "",
@@ -13,11 +12,13 @@ export default function AdoptionRequestManager() {
     status: "",
     fufilledBy: "",
     adoptionType: "",
-  });
+  };
 
+  const [form, setForm] = useState(emptyForm);
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState(null);
 
   // =====================================
   // LOAD REQUESTS
@@ -31,10 +32,8 @@ export default function AdoptionRequestManager() {
       });
 
       const data = await res.json();
+      if (res.ok) setRequests(data);
 
-      if (res.ok) {
-        setRequests(data);
-      }
     } catch (err) {
       console.error(err);
     }
@@ -45,7 +44,15 @@ export default function AdoptionRequestManager() {
   }, []);
 
   // =====================================
-  // FORM HANDLER
+  // RESET
+  // =====================================
+  const resetForm = () => {
+    setSelectedRequestId(null);
+    setForm(emptyForm);
+  };
+
+  // =====================================
+  // INPUT
   // =====================================
   const handleChange = (e) => {
     setForm({
@@ -55,34 +62,61 @@ export default function AdoptionRequestManager() {
   };
 
   // =====================================
-  // CRUD ACTION
+  // ROW CLICK (EDIT MODE)
+  // =====================================
+  const handleRowClick = (req) => {
+    setSelectedRequestId(req.requestId);
+
+    setForm({
+      ...req,
+    });
+  };
+
+  // =====================================
+  // CRUD (UNIFIED)
   // =====================================
   const handleAction = async (method) => {
     try {
+      if (method === "DELETE") {
+        if (!window.confirm("Delete this request?")) return;
+      }
+
       const url =
         method === "POST"
           ? "/api/adoption-requests"
           : `/api/adoption-requests/${form.requestId}`;
 
-      const options = {
+      const res = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-      };
+        ...(method !== "DELETE" && {
+          body: JSON.stringify(form),
+        }),
+      });
 
-      if (method !== "DELETE") {
-        options.body = JSON.stringify(form);
-      }
-
-      const res = await fetch(url, options);
       const data = await res.json();
 
       setIsError(!res.ok);
       setMessage(data.message || data.error);
 
-      if (res.ok) fetchRequests();
+      if (!res.ok) return;
+
+      // DELETE
+      if (method === "DELETE") {
+        resetForm();
+        fetchRequests();
+        return;
+      }
+
+      fetchRequests();
+
+      // CREATE reset
+      if (method === "POST") {
+        setTimeout(resetForm, 300);
+      }
 
     } catch {
       setIsError(true);
@@ -96,20 +130,29 @@ export default function AdoptionRequestManager() {
         Adoption Request Management
       </h2>
 
+      {/* EDIT MODE */}
+      {selectedRequestId && (
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "10px"
+        }}>
+          <span style={{ fontWeight: 600, color: "#2563eb" }}>
+            Editing Request ID: {selectedRequestId}
+          </span>
+
+          <button
+            className="btn-thin"
+            style={{ background: "#6b7280" }}
+            onClick={resetForm}
+          >
+            Stop Editing
+          </button>
+        </div>
+      )}
+
       {/* FORM */}
       <div className="form-container">
-
-        <label className="input-label">
-          Request ID (Update/Delete)
-        </label>
-
-        <input
-          name="requestId"
-          placeholder="Request ID"
-          value={form.requestId}
-          onChange={handleChange}
-          className="custom-input"
-        />
 
         <label className="input-label">
           Request Owner
@@ -194,6 +237,7 @@ export default function AdoptionRequestManager() {
         <button
           onClick={() => handleAction("POST")}
           className="btn btn-create"
+          disabled={!!selectedRequestId}
         >
           Create
         </button>
@@ -201,6 +245,7 @@ export default function AdoptionRequestManager() {
         <button
           onClick={() => handleAction("PUT")}
           className="btn btn-update"
+          disabled={!selectedRequestId}
         >
           Update
         </button>
@@ -208,6 +253,7 @@ export default function AdoptionRequestManager() {
         <button
           onClick={() => handleAction("DELETE")}
           className="btn btn-delete"
+          disabled={!selectedRequestId}
         >
           Delete
         </button>
@@ -222,33 +268,43 @@ export default function AdoptionRequestManager() {
 
       {/* TABLE */}
       <div style={{ marginTop: "30px" }}>
-        <h3>Current Requests</h3>
+        <h3>Click row to edit</h3>
 
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Submitter</th>
-              <th>Pet</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Handled By</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {requests.map((req) => (
-              <tr key={req.requestId}>
-                <td>{req.requestId}</td>
-                <td>{req.submitterId}</td>
-                <td>{req.petId}</td>
-                <td>{req.adoptionType}</td>
-                <td>{req.status}</td>
-                <td>{req.fufilledBy}</td>
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Submitter</th>
+                <th>Pet</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Handled By</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {requests.map((req) => (
+                <tr
+                  key={req.requestId}
+                  onClick={() => handleRowClick(req)}
+                  className={
+                    selectedRequestId == req.requestId
+                      ? "selected-row"
+                      : ""
+                  }
+                >
+                  <td>{req.requestId}</td>
+                  <td>{req.submitterId}</td>
+                  <td>{req.petId}</td>
+                  <td>{req.adoptionType}</td>
+                  <td>{req.status}</td>
+                  <td>{req.fufilledBy || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

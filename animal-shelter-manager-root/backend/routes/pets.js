@@ -121,7 +121,7 @@ export default (pool) => {
           sex || "",
           kennelId || null,
           breed || "",
-          behavioralNotes || "",       // ✅ FIX NULL ERROR
+          behavioralNotes || "",      
           dateOfAdmittance || null,
           finalDays,
           specialNotes || "",
@@ -258,38 +258,56 @@ export default (pool) => {
     }
   });
 
+  // ============================
+  // STORAGE CONFIG (CLEAN)
+  // ============================
+  const storage = multer.diskStorage({
+    destination: "uploads/",
+    filename: (req, file, cb) => {
+      const petId = req.params.id;
+
+      // Force consistent naming
+      cb(null, `pet-${petId}.jpg`);
+    },
+  });
+
+  const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  });
+
+  // ============================
+  // UPLOAD IMAGE
+  // ============================
+  router.post(
+    "/pets/:id/image",
+    verifyToken,
+    upload.single("image"),
+    async (req, res) => {
+      const { id } = req.params;
+
+      const [rows] = await pool.query(
+        "SELECT petId FROM pet WHERE petId = ?",
+        [id]
+      );
+
+      if (rows.length === 0) {
+        return res.status(404).json({
+          error: "Pet not found",
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({
+          error: "No file uploaded",
+        });
+      }
+
+      res.json({
+        message: "Image uploaded successfully",
+      });
+    }
+  );
+
   return router;
 };
-
-
-// ============================
-// STORAGE CONFIG (CLEAN)
-// ============================
-const storage = multer.diskStorage({
-  destination: "uploads/",
-  filename: (req, file, cb) => {
-    const petId = req.params.id;
-
-    // Force consistent naming
-    cb(null, `pet-${petId}.jpg`);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-});
-
-// ============================
-// UPLOAD IMAGE
-// ============================
-router.post(
-  "/pets/:id/image",
-  verifyToken,
-  upload.single("image"),
-  (req, res) => {
-    res.json({
-      message: "Image uploaded successfully",
-    });
-  }
-);

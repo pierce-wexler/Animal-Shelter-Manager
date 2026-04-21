@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import "./Manager.css";
 
 export default function UserManager() {
   const token = localStorage.getItem("token");
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     userId: "",
     fname: "",
     lname: "",
@@ -15,15 +14,16 @@ export default function UserManager() {
     qualificationNotes: "",
     blacklistFlag: "0",
     supervisor: "",
-  });
+  };
 
+  const [form, setForm] = useState(emptyForm);
   const [users, setUsers] = useState([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
 
   // =====================================
-  // FETCH USERS BASED ON ROLE TYPE
+  // FETCH USERS
   // =====================================
   const fetchUsers = async (role = form.roleType) => {
     try {
@@ -31,10 +31,7 @@ export default function UserManager() {
 
       if (role === "adopter") {
         endpoint = "/api/admin/users/adopters";
-      } else if (
-        role === "staff" ||
-        role === "admin"
-      ) {
+      } else if (role === "staff" || role === "admin") {
         endpoint = "/api/admin/users/staff";
       } else if (role === "volunteer") {
         endpoint = "/api/admin/users/volunteers";
@@ -48,23 +45,15 @@ export default function UserManager() {
 
       let data = await res.json();
 
-      // Filter staff/admin from same endpoint
       if (role === "admin") {
-        data = data.filter(
-          (u) => u.roleType === "admin"
-        );
+        data = data.filter((u) => u.roleType === "admin");
       }
 
       if (role === "staff") {
-        data = data.filter(
-          (u) => u.roleType === "staff"
-        );
+        data = data.filter((u) => u.roleType === "staff");
       }
 
-      if (res.ok) {
-        setSelectedUserId(null);
-        setUsers(data);
-      }
+      if (res.ok) setUsers(data);
 
     } catch (err) {
       console.error(err);
@@ -74,6 +63,14 @@ export default function UserManager() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // =====================================
+  // RESET
+  // =====================================
+  const resetForm = () => {
+    setSelectedUserId(null);
+    setForm(emptyForm);
+  };
 
   // =====================================
   // INPUT CHANGE
@@ -87,56 +84,13 @@ export default function UserManager() {
     setForm(updated);
 
     if (e.target.name === "roleType") {
-      setSelectedUserId(null);
+      resetForm();
       fetchUsers(e.target.value);
     }
-
-    if (e.target.name === "userId") {
-      setSelectedUserId(null);
-    }
   };
 
   // =====================================
-  // CRUD ACTIONS
-  // =====================================
-  const handleAction = async (method) => {
-    try {
-      const url =
-        method === "POST"
-          ? "/api/admin/users"
-          : `/api/admin/users/${form.userId}`;
-
-      const options = {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      };
-
-      if (method !== "DELETE") {
-        options.body = JSON.stringify(form);
-      }
-
-      const res = await fetch(url, options);
-      const data = await res.json();
-
-      setIsError(!res.ok);
-      setMessage(data.message || data.error);
-
-      if (res.ok) {
-        setSelectedUserId(null);
-        fetchUsers();
-      }
-
-    } catch {
-      setIsError(true);
-      setMessage("Server error");
-    }
-  };
-
-  // =====================================
-  // ROW CLICK → AUTOFILL FORM
+  // ROW CLICK
   // =====================================
   const handleRowClick = (user) => {
     setSelectedUserId(user.userId);
@@ -146,18 +100,65 @@ export default function UserManager() {
       fname: user.fname || "",
       lname: user.lname || "",
       email: user.email || "",
-      password: "", // never autofill password
-
-      roleType: user.roleType || form.roleType,
-
+      password: "",
+      roleType: user.roleType || "adopter",
       qualificationNotes: user.qualificationNotes || "",
       blacklistFlag:
         user.blacklistFlag !== undefined
           ? String(user.blacklistFlag)
           : "0",
-
       supervisor: user.supervisor || "",
     });
+  };
+
+  // =====================================
+  // CRUD ACTIONS
+  // =====================================
+  const handleAction = async (method) => {
+    try {
+      if (method === "DELETE") {
+        if (!window.confirm("Delete this user?")) return;
+      }
+
+      const url =
+        method === "POST"
+          ? "/api/admin/users"
+          : `/api/admin/users/${form.userId}`;
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        ...(method !== "DELETE" && {
+          body: JSON.stringify(form),
+        }),
+      });
+
+      const data = await res.json();
+
+      setIsError(!res.ok);
+      setMessage(data.message || data.error);
+
+      if (!res.ok) return;
+
+      if (method === "DELETE") {
+        resetForm();
+        fetchUsers();
+        return;
+      }
+
+      fetchUsers();
+
+      if (method === "POST") {
+        setTimeout(resetForm, 300);
+      }
+
+    } catch {
+      setIsError(true);
+      setMessage("Server error");
+    }
   };
 
   return (
@@ -166,20 +167,29 @@ export default function UserManager() {
         User + Role Management
       </h2>
 
+      {/* EDIT MODE */}
+      {selectedUserId && (
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "10px"
+        }}>
+          <span style={{ fontWeight: 600, color: "#2563eb" }}>
+            Editing User ID: {selectedUserId}
+          </span>
+
+          <button
+            className="btn-thin"
+            style={{ background: "#6b7280" }}
+            onClick={resetForm}
+          >
+            Stop Editing
+          </button>
+        </div>
+      )}
+
       {/* FORM */}
       <div className="form-container">
-
-        <label className="input-label">
-          Existing User ID (Required for Update/Delete)
-        </label>
-
-        <input
-          name="userId"
-          placeholder="Auto-filled when clicking a row"
-          value={form.userId}
-          onChange={handleChange}
-          className="custom-input"
-        />
 
         <label className="input-label">
           Basic Info
@@ -220,7 +230,7 @@ export default function UserManager() {
           className="custom-input"
         />
 
-        {/* ACCOUNT TYPE */}
+        {/* ROLE */}
         <label className="input-label">
           Account Type
         </label>
@@ -237,7 +247,7 @@ export default function UserManager() {
           <option value="admin">Admin</option>
         </select>
 
-        {/* ROLE FIELDS */}
+        {/* ROLE DETAILS */}
         <label className="input-label">
           Role Details
         </label>
@@ -258,12 +268,8 @@ export default function UserManager() {
               onChange={handleChange}
               className="custom-input"
             >
-              <option value="0">
-                Not Blacklisted
-              </option>
-              <option value="1">
-                Blacklisted
-              </option>
+              <option value="0">Not Blacklisted</option>
+              <option value="1">Blacklisted</option>
             </select>
           </>
         ) : (
@@ -282,6 +288,7 @@ export default function UserManager() {
         <button
           onClick={() => handleAction("POST")}
           className="btn btn-create"
+          disabled={!!selectedUserId}
         >
           Create
         </button>
@@ -312,79 +319,69 @@ export default function UserManager() {
 
       {/* TABLE */}
       <div style={{ marginTop: "30px" }}>
-        <h3>
-          Current {form.roleType} Accounts
-        </h3>
+        <h3>Click row to edit</h3>
 
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>First</th>
-              <th>Last</th>
-              <th>Email</th>
-
-              {form.roleType === "adopter" && (
-                <>
-                  <th>Notes</th>
-                  <th>Blacklisted</th>
-                </>
-              )}
-
-              {(form.roleType === "staff" ||
-                form.roleType === "admin" ||
-                form.roleType === "volunteer") && (
-                  <th>Supervisor</th>
-                )}
-
-              <th>Role</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {users.map((user) => (
-              <tr
-                key={user.userId}
-                onClick={() => handleRowClick(user)}
-                className={
-                  selectedUserId === user.userId ? "selected-row" : ""
-                }
-                style={{ cursor: "pointer" }}
-              >
-                <td>{user.userId}</td>
-                <td>{user.fname}</td>
-                <td>{user.lname}</td>
-                <td>{user.email}</td>
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>First</th>
+                <th>Last</th>
+                <th>Email</th>
 
                 {form.roleType === "adopter" && (
                   <>
-                    <td>
-                      {user.qualificationNotes}
-                    </td>
-                    <td>
-                      {user.blacklistFlag
-                        ? "Yes"
-                        : "No"}
-                    </td>
+                    <th>Notes</th>
+                    <th>Blacklisted</th>
                   </>
                 )}
 
                 {(form.roleType === "staff" ||
                   form.roleType === "admin" ||
                   form.roleType === "volunteer") && (
-                    <td>
-                      {user.supervisor || "-"}
-                    </td>
+                    <th>Supervisor</th>
                   )}
 
-                <td>
-                  {user.roleType ||
-                    form.roleType}
-                </td>
+                <th>Role</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {users.map((user) => (
+                <tr
+                  key={user.userId}
+                  onClick={() => handleRowClick(user)}
+                  className={
+                    selectedUserId == user.userId
+                      ? "selected-row"
+                      : ""
+                  }
+                >
+                  <td>{user.userId}</td>
+                  <td>{user.fname}</td>
+                  <td>{user.lname}</td>
+                  <td>{user.email}</td>
+
+                  {form.roleType === "adopter" && (
+                    <>
+                      <td>{user.qualificationNotes}</td>
+                      <td>{user.blacklistFlag ? "Yes" : "No"}</td>
+                    </>
+                  )}
+
+                  {(form.roleType === "staff" ||
+                    form.roleType === "admin" ||
+                    form.roleType === "volunteer") && (
+                      <td>{user.supervisor || "-"}</td>
+                    )}
+
+                  <td>{user.roleType}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

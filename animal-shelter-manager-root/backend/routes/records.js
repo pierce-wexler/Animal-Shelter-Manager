@@ -7,8 +7,7 @@ const router = express.Router();
 export default (pool) => {
 
   // ==================================================
-  // GET ALL BASE RECORDS
-  // For frontend database table view
+  // GET ALL RECORDS (BASIC)
   // ==================================================
   router.get(
     "/records",
@@ -16,15 +15,15 @@ export default (pool) => {
     async (req, res) => {
       try {
         const [rows] = await pool.query(`
-          SELECT
-            r.recordId,
-            r.petId,
-            r.dateOfRecord,
-            r.recordType,
-            r.notes
-          FROM record r
-          ORDER BY r.recordId DESC
-        `);
+        SELECT
+          r.recordId,
+          r.petId,
+          r.dateOfRecord,
+          r.recordType,
+          r.notes
+        FROM record r
+        ORDER BY r.recordId DESC
+      `);
 
         res.json(rows);
 
@@ -37,59 +36,70 @@ export default (pool) => {
     }
   );
 
-  // ==================================================
-  // GET FULL RECORD DETAILS
-  // Includes medical / adoption / foster subtype data
-  // ==================================================
+
   router.get(
-    "/records/:id",
+    "/records/full",
     verifyToken,
     async (req, res) => {
-      const { id } = req.params;
-
       try {
-        const [rows] = await pool.query(
-          `
-          SELECT
-            r.recordId,
-            r.petId,
-            r.dateOfRecord,
-            r.recordType,
-            r.notes,
+        const [rows] = await pool.query(`
+        SELECT
+          r.recordId,
+          r.petId,
+          r.dateOfRecord,
+          r.recordType,
+          r.notes,
 
-            mr.institution,
-            mr.vet,
+          p.name AS petName,
+          p.breed AS petBreed,
 
-            ar.adopterId,
-            ar.staffId,
+          mr.institution,
+          mr.vet,
 
-            fr.status AS fosterStatus,
-            fr.staffId AS fosterStaffId
+          ar.adopterId,
+          ar.staffId,
 
-          FROM record r
-          LEFT JOIN medical_record mr
-            ON r.recordId = mr.recordId
-          LEFT JOIN adoption_record ar
-            ON r.recordId = ar.recordId
-          LEFT JOIN foster_record fr
-            ON r.recordId = fr.recordId
-          WHERE r.recordId = ?
-          `,
-          [id]
-        );
+          au.fname || ' ' || au.lname AS adopterName,
+          su.fname || ' ' || su.lname AS staffName,
 
-        if (rows.length === 0) {
-          return res.status(404).json({
-            error: "Record not found",
-          });
-        }
+          fr.status AS fosterStatus,
+          fr.fosterEndDate
 
-        res.json(rows[0]);
+        FROM record r
+
+        LEFT JOIN pet p
+          ON r.petId = p.petId
+
+        LEFT JOIN medical_record mr
+          ON r.recordId = mr.recordId
+
+        LEFT JOIN adoption_record ar
+          ON r.recordId = ar.recordId
+
+        LEFT JOIN foster_record fr
+          ON r.recordId = fr.recordId
+
+        LEFT JOIN adopter a
+          ON ar.adopterId = a.userId
+
+        LEFT JOIN app_user au
+          ON a.userId = au.userId
+
+        LEFT JOIN staff s
+          ON ar.staffId = s.userId
+
+        LEFT JOIN app_user su
+          ON s.userId = su.userId
+
+        ORDER BY r.recordId DESC
+      `);
+
+        res.json(rows);
 
       } catch (err) {
         console.error(err);
         res.status(500).json({
-          error: "Failed to fetch record",
+          error: "Failed to fetch full record data",
         });
       }
     }

@@ -5,6 +5,14 @@ import "./Manager.css";
 export default function PetManager() {
   const token = localStorage.getItem("token");
   const [imageVersion, setImageVersion] = useState(Date.now());
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   // ================= PET STATE =================
   const [petForm, setPetForm] = useState({
@@ -95,7 +103,6 @@ export default function PetManager() {
       updated.daysInShelter = calcDays(value);
     }
 
-    // 🔥 CLEAR SELECTION IF USER TYPES ID
     if (name === "petId") {
       setSelectedPetId(null);
     }
@@ -117,7 +124,7 @@ export default function PetManager() {
   };
 
   const handleRowClick = (pet) => {
-    setSelectedPetId(pet.petId); // 🔥 highlight
+    setSelectedPetId(pet.petId);
 
     setPetForm({
       ...pet,
@@ -126,50 +133,96 @@ export default function PetManager() {
     });
   };
 
+  const emptyPet = {
+    petId: "",
+    name: "",
+    dateOfBirth: "",
+    age: "",
+    sex: "",
+    kennelId: "",
+    breed: "",
+    behavioralNotes: "",
+    dateOfAdmittance: "",
+    daysInShelter: "",
+    specialNotes: "",
+    status: "Available",
+  };
+
+  const resetPetForm = () => {
+    setSelectedPetId(null);
+    setPetForm(emptyPet);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+  };
+
+  const uploadImage = async (petId) => {
+    if (!selectedFile || !petId) return;
+
+    const formData = new FormData();
+    formData.append("image", selectedFile);
+
+    await fetch(`/api/pets/${petId}/image`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    setImageVersion(Date.now());
+    setSelectedFile(null);
+  };
+
   // ================= PET ACTIONS =================
   const handlePetAction = async (method) => {
+    if (method === "DELETE") {
+      if (!window.confirm("Delete this pet?")) return;
+    }
+
     const url =
       method === "POST"
         ? "/api/pets"
         : `/api/pets/${petForm.petId}`;
 
-    const options = {
+    const res = await fetch(url, {
       method,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-    };
+      ...(method !== "DELETE" && { body: JSON.stringify(petForm) }),
+    });
 
-    if (method !== "DELETE") {
-      options.body = JSON.stringify(petForm);
-    }
-
-    const res = await fetch(url, options);
     const data = await res.json();
 
     setPetIsError(!res.ok);
     setPetMessage(data.message || data.error);
 
-    if (res.ok) {
-      setSelectedPetId(null);
-      setPetForm({
-        petId: "",
-        name: "",
-        dateOfBirth: "",
-        age: "",
-        sex: "",
-        kennelId: "",
-        breed: "",
-        behavioralNotes: "",
-        dateOfAdmittance: "",
-        daysInShelter: "",
-        specialNotes: "",
-        status: "Available",
-      });
+    if (!res.ok) return;
 
-
+    // 🔴 DELETE
+    if (method === "DELETE") {
+      resetPetForm();
       fetchPets();
+      return;
+    }
+
+    // Determine correct ID
+    const petId = method === "POST" ? data.petId : petForm.petId;
+
+    // Keep selection for update flow
+    setSelectedPetId(petId);
+    setPetForm((prev) => ({ ...prev, petId }));
+
+    // Upload image if needed
+    await uploadImage(petId);
+
+    setPreviewUrl(null);
+    fetchPets();
+
+    // Reset only after create
+    if (method === "POST") {
+      setTimeout(resetPetForm, 500);
     }
   };
 
@@ -274,6 +327,7 @@ export default function PetManager() {
           <label className="input-label">Room Number</label>
           <input
             name="roomNo"
+            placeholder="Number of room holding kennel"
             value={kennelForm.roomNo}
             onChange={handleKennelChange}
             className="custom-input"
@@ -305,41 +359,45 @@ export default function PetManager() {
         {/* TABLE */}
         <div style={{ marginTop: "25px" }}>
           <h3>Click row to edit</h3>
-
-          <table className="data-table kennel-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Room</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {kennels.map((k) => (
-                <tr
-                  key={k.kennelId}
-                  onClick={() => {
-                    setSelectedKennelId(k.kennelId);
-                    setKennelForm({
-                      kennelId: k.kennelId,
-                      roomNo: k.roomNo,
-                      occupationStatus: String(k.occupationStatus),
-                    });
-                  }}
-                  style={{ cursor: "pointer" }}
-                >
-                  <td>{k.kennelId}</td>
-                  <td>{k.roomNo}</td>
-                  <td>
-                    {String(k.occupationStatus) === "1"
-                      ? "Occupied"
-                      : "Vacant"}
-                  </td>
+          <div className="table-container">
+            <table className="data-table kennel-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Room</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {kennels.map((k) => (
+                  <tr
+                    key={k.kennelId}
+                    onClick={() => {
+                      setSelectedKennelId(k.kennelId);
+                      setKennelForm({
+                        kennelId: k.kennelId,
+                        roomNo: k.roomNo,
+                        occupationStatus: String(k.occupationStatus),
+                      });
+                    }}
+                    style={{ cursor: "pointer" }}
+                    className={
+                      selectedKennelId == k.kennelId ? "selected-row" : ""
+                    }
+                  >
+                    <td>{k.kennelId}</td>
+                    <td>{k.roomNo}</td>
+                    <td>
+                      {String(k.occupationStatus) === "1"
+                        ? "Occupied"
+                        : "Vacant"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -389,13 +447,13 @@ export default function PetManager() {
         <div className="form-container">
 
           <label className="input-label">Name</label>
-          <input name="name" value={petForm.name} onChange={handlePetChange} className="custom-input" />
+          <input name="name" placeholder="Name of animal" value={petForm.name} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Date of Birth</label>
           <input type="date" name="dateOfBirth" value={petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Age</label>
-          <input name="age" value={petForm.age} disabled={!!petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
+          <input name="age" placeholder="Not req. if DOB specified" value={petForm.age} disabled={!!petForm.dateOfBirth} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Sex</label>
           <select name="sex" value={petForm.sex} onChange={handlePetChange} className="custom-input">
@@ -415,19 +473,16 @@ export default function PetManager() {
           </select>
 
           <label className="input-label">Breed</label>
-          <input name="breed" value={petForm.breed} onChange={handlePetChange} className="custom-input" />
+          <input name="breed" placeholder="Breed info" value={petForm.breed} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Behavioral Notes</label>
-          <textarea name="behavioralNotes" value={petForm.behavioralNotes} onChange={handlePetChange} className="custom-input" />
+          <textarea name="behavioralNotes" placeholder="Behavior notes" value={petForm.behavioralNotes} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Date of Admittance</label>
           <input type="date" name="dateOfAdmittance" value={petForm.dateOfAdmittance} onChange={handlePetChange} className="custom-input" />
 
-          <label className="input-label">Days in Shelter</label>
-          <input name="daysInShelter" value={petForm.daysInShelter} disabled className="custom-input" />
-
           <label className="input-label">Special Notes</label>
-          <textarea name="specialNotes" value={petForm.specialNotes} onChange={handlePetChange} className="custom-input" />
+          <textarea name="specialNotes" placeholder="Special Notes" value={petForm.specialNotes} onChange={handlePetChange} className="custom-input" />
 
           <label className="input-label">Status</label>
           <select name="status" value={petForm.status} onChange={handlePetChange} className="custom-input">
@@ -436,11 +491,21 @@ export default function PetManager() {
           </select>
 
           <label className="input-label">Pet Image</label>
-          <input type="file" accept="image/*" onChange={(e) => handleImageUpload(e.target.files[0])} className="custom-input" />
+          <input type="file" accept="image/*" onChange={(e) => {
+            const file = e.target.files[0];
+            if (!file) return;
 
-          {petForm.petId && (
+            setSelectedFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+          }} className="custom-input" />
+
+          {(previewUrl || petForm.petId) && (
             <img
-              src={`http://localhost:5000/uploads/pet-${petForm.petId}.jpg?v=${imageVersion}`}
+              src={
+                previewUrl
+                  ? previewUrl
+                  : `http://localhost:5000/uploads/pet-${petForm.petId}.jpg?v=${imageVersion}`
+              }
               alt="preview"
               className="pet-image"
               onError={(e) => {
@@ -467,64 +532,68 @@ export default function PetManager() {
         {/* ================= PET TABLE ================= */}
         <div style={{ marginTop: "30px" }}>
           <h3>Click row to edit</h3>
-
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>DOB</th>
-                <th>Age</th>
-                <th>Sex</th>
-                <th>Kennel</th>
-                <th>Breed</th>
-                <th>Behavior</th>
-                <th>Days</th>
-                <th>Special Notes</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {pets.map((pet) => (
-                <tr
-                  key={pet.petId}
-                  onClick={() => handleRowClick(pet)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <td>{pet.petId}</td>
-
-                  <td>{pet.name}</td>
-
-                  <td>
-                    {pet.dateOfBirth
-                      ? pet.dateOfBirth.split("T")[0]
-                      : "—"}
-                  </td>
-
-                  <td>{pet.age ?? "—"}</td>
-
-                  <td>{pet.sex || "—"}</td>
-
-                  <td>{pet.kennelId || "—"}</td>
-
-                  <td>{pet.breed || "—"}</td>
-
-                  <td style={{ maxWidth: "150px" }}>
-                    {pet.behavioralNotes || "None"}
-                  </td>
-
-                  <td>{pet.daysInShelter ?? "—"}</td>
-
-                  <td style={{ maxWidth: "150px" }}>
-                    {pet.specialNotes || "None"}
-                  </td>
-
-                  <td>{pet.status || "—"}</td>
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>DOB</th>
+                  <th>Age</th>
+                  <th>Sex</th>
+                  <th>Kennel</th>
+                  <th>Breed</th>
+                  <th>Behavior</th>
+                  <th>Days</th>
+                  <th>Special Notes</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+
+              <tbody>
+                {pets.map((pet) => (
+                  <tr
+                    key={pet.petId}
+                    onClick={() => handleRowClick(pet)}
+                    style={{ cursor: "pointer" }}
+                    className={
+                      selectedPetId == pet.petId ? "selected-row" : ""
+                    }
+                  >
+                    <td>{pet.petId}</td>
+
+                    <td>{pet.name}</td>
+
+                    <td>
+                      {pet.dateOfBirth
+                        ? pet.dateOfBirth.split("T")[0]
+                        : "—"}
+                    </td>
+
+                    <td>{pet.age ?? "—"}</td>
+
+                    <td>{pet.sex || "—"}</td>
+
+                    <td>{pet.kennelId || "—"}</td>
+
+                    <td>{pet.breed || "—"}</td>
+
+                    <td style={{ maxWidth: "150px" }}>
+                      {pet.behavioralNotes || "None"}
+                    </td>
+
+                    <td>{pet.daysInShelter ?? "—"}</td>
+
+                    <td style={{ maxWidth: "150px" }}>
+                      {pet.specialNotes || "None"}
+                    </td>
+
+                    <td>{pet.status || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div >

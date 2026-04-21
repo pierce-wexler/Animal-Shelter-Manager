@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import "./Manager.css";
 
 export default function EventManager() {
   const token = localStorage.getItem("token");
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     eventId: "",
     eventType: "",
     eventDateTime: "",
@@ -14,11 +13,13 @@ export default function EventManager() {
     adopterId: "",
     petId: "",
     location: "",
-  });
+  };
 
+  const [form, setForm] = useState(emptyForm);
   const [events, setEvents] = useState([]);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState(null);
 
   // =====================================
   // LOAD EVENTS
@@ -32,10 +33,8 @@ export default function EventManager() {
       });
 
       const data = await res.json();
+      if (res.ok) setEvents(data);
 
-      if (res.ok) {
-        setEvents(data);
-      }
     } catch (err) {
       console.error(err);
     }
@@ -46,7 +45,15 @@ export default function EventManager() {
   }, []);
 
   // =====================================
-  // FORM HANDLER
+  // RESET
+  // =====================================
+  const resetForm = () => {
+    setSelectedEventId(null);
+    setForm(emptyForm);
+  };
+
+  // =====================================
+  // INPUT CHANGE
   // =====================================
   const handleChange = (e) => {
     setForm({
@@ -56,17 +63,42 @@ export default function EventManager() {
   };
 
   // =====================================
-  // CREATE
+  // ROW CLICK (EDIT MODE)
   // =====================================
-  const handleCreate = async () => {
+  const handleRowClick = (event) => {
+    setSelectedEventId(event.eventId);
+
+    setForm({
+      ...event,
+      eventDateTime: event.eventDateTime
+        ? event.eventDateTime.slice(0, 16) // fix datetime-local format
+        : "",
+    });
+  };
+
+  // =====================================
+  // CRUD ACTION (UNIFIED)
+  // =====================================
+  const handleAction = async (method) => {
     try {
-      const res = await fetch("/api/events", {
-        method: "POST",
+      if (method === "DELETE") {
+        if (!window.confirm("Delete this event?")) return;
+      }
+
+      const url =
+        method === "POST"
+          ? "/api/events"
+          : `/api/events/${form.eventId}`;
+
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(form),
+        ...(method !== "DELETE" && {
+          body: JSON.stringify(form),
+        }),
       });
 
       const data = await res.json();
@@ -74,63 +106,25 @@ export default function EventManager() {
       setIsError(!res.ok);
       setMessage(data.message || data.error);
 
-      if (res.ok) fetchEvents();
+      if (!res.ok) return;
+
+      // DELETE
+      if (method === "DELETE") {
+        resetForm();
+        fetchEvents();
+        return;
+      }
+
+      fetchEvents();
+
+      // CREATE reset
+      if (method === "POST") {
+        setTimeout(resetForm, 300);
+      }
 
     } catch {
       setIsError(true);
-      setMessage("Error creating event");
-    }
-  };
-
-  // =====================================
-  // UPDATE
-  // =====================================
-  const handleUpdate = async () => {
-    try {
-      const res = await fetch(`/api/events/${form.eventId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-
-      setIsError(!res.ok);
-      setMessage(data.message || data.error);
-
-      if (res.ok) fetchEvents();
-
-    } catch {
-      setIsError(true);
-      setMessage("Error updating event");
-    }
-  };
-
-  // =====================================
-  // DELETE
-  // =====================================
-  const handleDelete = async () => {
-    try {
-      const res = await fetch(`/api/events/${form.eventId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const data = await res.json();
-
-      setIsError(!res.ok);
-      setMessage(data.message || data.error);
-
-      if (res.ok) fetchEvents();
-
-    } catch {
-      setIsError(true);
-      setMessage("Error deleting event");
+      setMessage("Server error");
     }
   };
 
@@ -138,20 +132,29 @@ export default function EventManager() {
     <div className="manager-card">
       <h2 className="manager-title">Event Management</h2>
 
+      {/* EDIT MODE */}
+      {selectedEventId && (
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "10px"
+        }}>
+          <span style={{ fontWeight: 600, color: "#2563eb" }}>
+            Editing Event ID: {selectedEventId}
+          </span>
+
+          <button
+            className="btn-thin"
+            style={{ background: "#6b7280" }}
+            onClick={resetForm}
+          >
+            Stop Editing
+          </button>
+        </div>
+      )}
+
       {/* FORM */}
       <div className="form-container">
-
-        <label className="input-label">
-          Event ID (Update/Delete)
-        </label>
-
-        <input
-          name="eventId"
-          placeholder="Event ID"
-          value={form.eventId}
-          onChange={handleChange}
-          className="custom-input"
-        />
 
         <label className="input-label">Basic Info</label>
 
@@ -225,22 +228,25 @@ export default function EventManager() {
       {/* BUTTONS */}
       <div className="button-group">
         <button
-          onClick={handleCreate}
+          onClick={() => handleAction("POST")}
           className="btn btn-create"
+          disabled={!!selectedEventId}
         >
           Create
         </button>
 
         <button
-          onClick={handleUpdate}
+          onClick={() => handleAction("PUT")}
           className="btn btn-update"
+          disabled={!selectedEventId}
         >
           Update
         </button>
 
         <button
-          onClick={handleDelete}
+          onClick={() => handleAction("DELETE")}
           className="btn btn-delete"
+          disabled={!selectedEventId}
         >
           Delete
         </button>
@@ -255,37 +261,51 @@ export default function EventManager() {
 
       {/* TABLE */}
       <div style={{ marginTop: "30px" }}>
-        <h3>Current Events</h3>
+        <h3>Click row to edit</h3>
 
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Type</th>
-              <th>Date/Time</th>
-              <th>Location</th>
-              <th>Staff</th>
-              <th>Volunteer</th>
-              <th>Adopter</th>
-              <th>Pet</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {events.map((event) => (
-              <tr key={event.eventId}>
-                <td>{event.eventId}</td>
-                <td>{event.eventType}</td>
-                <td>{event.eventDateTime}</td>
-                <td>{event.location}</td>
-                <td>{event.staffId}</td>
-                <td>{event.volunteerId}</td>
-                <td>{event.adopterId}</td>
-                <td>{event.petId}</td>
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Date/Time</th>
+                <th>Location</th>
+                <th>Staff</th>
+                <th>Volunteer</th>
+                <th>Adopter</th>
+                <th>Pet</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {events.map((event) => (
+                <tr
+                  key={event.eventId}
+                  onClick={() => handleRowClick(event)}
+                  className={
+                    selectedEventId == event.eventId
+                      ? "selected-row"
+                      : ""
+                  }
+                >
+                  <td>{event.eventId}</td>
+                  <td>{event.eventType}</td>
+                  <td>
+                    {event.eventDateTime
+                      ? event.eventDateTime.replace("T", " ")
+                      : "—"}
+                  </td>
+                  <td>{event.location}</td>
+                  <td>{event.staffId || "—"}</td>
+                  <td>{event.volunteerId || "—"}</td>
+                  <td>{event.adopterId || "—"}</td>
+                  <td>{event.petId || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
