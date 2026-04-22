@@ -262,5 +262,16 @@ export default (pool) => {
     }
   };
 
+  router.get("/users/me", verifyToken, async (req, res) => {
+    const userId = req.user.userId;
+
+    const [rows] = await pool.query(
+      "SELECT fname, lname FROM app_user WHERE userId = ?",
+      [userId]
+    );
+
+    res.json(rows[0]);
+  });
+
   return router;
 };

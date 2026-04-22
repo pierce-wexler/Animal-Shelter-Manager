@@ -29,7 +29,9 @@ export default function Dashboard() {
 
   const role = userData?.role || localStorage.getItem("role");
   const isAdmin = userData?.isAdmin || false;
-
+  const fname = userData?.fname || "";
+  const lname = userData?.lname || "";
+  const fullName = `${fname} ${lname}`.trim();
   // =======================
   // Default tabs by role
   // =======================
@@ -71,13 +73,22 @@ export default function Dashboard() {
       >
         <div>
           <h1 style={{ margin: 0 }}>
-            {isAdmin
-              ? "Superuser Dashboard"
-              : role === "staff"
-                ? "Staff Dashboard"
-                : role === "volunteer"
-                  ? "Volunteer Dashboard"
-                  : "Adopter Dashboard"}
+            {fullName
+              ? `${fullName}'s ${isAdmin
+                ? "Superuser Dashboard"
+                : role === "staff"
+                  ? "Staff Dashboard"
+                  : role === "volunteer"
+                    ? "Volunteer Dashboard"
+                    : "Adopter Dashboard"
+              }`
+              : isAdmin
+                ? "Superuser Dashboard"
+                : role === "staff"
+                  ? "Staff Dashboard"
+                  : role === "volunteer"
+                    ? "Volunteer Dashboard"
+                    : "Adopter Dashboard"}
           </h1>
 
           <p style={{ margin: 0, color: "#718096" }}>
@@ -141,16 +152,6 @@ export default function Dashboard() {
         {/* STAFF + ADMIN */}
         {(role === "staff" || isAdmin) && (
           <>
-            <button
-              style={
-                activeTab === "requests"
-                  ? tabStyles.activeBtn
-                  : tabStyles.btn
-              }
-              onClick={() => setActiveTab("requests")}
-            >
-              Requests
-            </button>
 
             <button
               style={
@@ -162,7 +163,16 @@ export default function Dashboard() {
             >
               Pets
             </button>
-
+            <button
+              style={
+                activeTab === "requests"
+                  ? tabStyles.activeBtn
+                  : tabStyles.btn
+              }
+              onClick={() => setActiveTab("requests")}
+            >
+              Requests
+            </button>
             <button
               style={
                 activeTab === "records"
@@ -173,7 +183,13 @@ export default function Dashboard() {
             >
               Records
             </button>
+          </>
+        )}
 
+        {/* STAFF + VOLUNTEERS */}
+        {(role === "staff" ||
+          role === "volunteer" ||
+          isAdmin) && (
             <button
               style={
                 activeTab === "events"
@@ -184,8 +200,7 @@ export default function Dashboard() {
             >
               Events
             </button>
-          </>
-        )}
+          )}
 
         {/* ALL USERS */}
         {(role === "adopter" ||

@@ -2,6 +2,7 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import verifyToken from "../middleware/verifyToken.js";
 
 const router = express.Router();
 
@@ -148,6 +149,8 @@ export default (pool) => {
           userId: user.userId,
           role,
           isAdmin,
+          fname: user.fname,
+          lname: user.lname,
         },
         process.env.JWT_SECRET || "dev_secret",
         { expiresIn: "1h" }
@@ -173,8 +176,9 @@ export default (pool) => {
     const { fname, lname, currentPassword, newPassword } = req.body;
 
     try {
+      // 🔹 Get stored hash
       const [rows] = await pool.query(
-        "SELECT password FROM app_user WHERE userId = ?",
+        "SELECT passwordHash FROM app_user WHERE userId = ?",
         [userId]
       );
 
@@ -185,7 +189,7 @@ export default (pool) => {
       const user = rows[0];
 
       // 🔐 VERIFY CURRENT PASSWORD
-      const valid = await bcrypt.compare(currentPassword, user.password);
+      const valid = await bcrypt.compare(currentPassword, user.passwordHash);
       if (!valid) {
         return res.status(401).json({
           error: "Current password is incorrect",
@@ -193,21 +197,20 @@ export default (pool) => {
       }
 
       // 🔄 UPDATE PASSWORD IF PROVIDED
-      let updatedPassword = user.password;
+      let updatedHash = user.passwordHash;
 
       if (newPassword) {
-        const salt = await bcrypt.genSalt(10);
-        updatedPassword = await bcrypt.hash(newPassword, salt);
+        updatedHash = await bcrypt.hash(newPassword, 10);
       }
 
       // 📝 UPDATE USER
       await pool.query(
         `
       UPDATE app_user
-      SET fname = ?, lname = ?, password = ?
+      SET fname = ?, lname = ?, passwordHash = ?
       WHERE userId = ?
       `,
-        [fname, lname, updatedPassword, userId]
+        [fname, lname, updatedHash, userId]
       );
 
       res.json({ message: "Profile updated successfully" });
