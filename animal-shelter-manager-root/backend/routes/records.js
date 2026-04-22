@@ -6,8 +6,10 @@ const router = express.Router();
 export default (pool) => {
 
   // ==================================================
-  // GET ALL RECORDS (BASIC)
+  // ================= RECORD ENDPOINTS =================
   // ==================================================
+
+  // GET ALL RECORDS
   router.get("/records", verifyToken, async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -23,9 +25,7 @@ export default (pool) => {
     }
   });
 
-  // ==================================================
   // GET FULL RECORD VIEW
-  // ==================================================
   router.get("/records/full", verifyToken, async (req, res) => {
     try {
       const [rows] = await pool.query(`
@@ -69,9 +69,7 @@ export default (pool) => {
     }
   });
 
-  // ==================================================
   // CREATE MEDICAL RECORD
-  // ==================================================
   router.post("/medical-records", verifyToken, async (req, res) => {
     const { petId, dateOfRecord, notes, institution, vet } = req.body;
     const conn = await pool.getConnection();
@@ -104,9 +102,7 @@ export default (pool) => {
     }
   });
 
-  // ==================================================
   // CREATE ADOPTION RECORD
-  // ==================================================
   router.post("/adoption-records", verifyToken, async (req, res) => {
     const { petId, dateOfRecord, notes, adopterId, staffId } = req.body;
     const conn = await pool.getConnection();
@@ -139,9 +135,7 @@ export default (pool) => {
     }
   });
 
-  // ==================================================
-  // CREATE FOSTER RECORD (FIXED)
-  // ==================================================
+  // CREATE FOSTER RECORD
   router.post("/foster-records", verifyToken, async (req, res) => {
     const {
       petId,
@@ -150,7 +144,7 @@ export default (pool) => {
       adopterId,
       staffId,
       status,
-      fosterEndDate // ✅ ADDED
+      fosterEndDate
     } = req.body;
 
     const conn = await pool.getConnection();
@@ -165,19 +159,17 @@ export default (pool) => {
 
       const recordId = base.insertId;
 
+      // REQUIRED PARENT
       await conn.query(`
         INSERT INTO adoption_record (recordId, adopterId, staffId)
         VALUES (?, ?, ?)
       `, [recordId, adopterId || null, staffId || null]);
 
+      // CHILD
       await conn.query(`
         INSERT INTO foster_record (recordId, status, fosterEndDate)
         VALUES (?, ?, ?)
-      `, [
-        recordId,
-        status || "active",
-        fosterEndDate || null // ✅ FIXED
-      ]);
+      `, [recordId, status || "active", fosterEndDate || null]);
 
       await conn.commit();
 
@@ -192,9 +184,7 @@ export default (pool) => {
     }
   });
 
-  // ==================================================
   // UPDATE RECORD
-  // ==================================================
   router.put("/records/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
     const { petId, dateOfRecord, notes } = req.body;
@@ -218,9 +208,7 @@ export default (pool) => {
     }
   });
 
-  // ==================================================
   // DELETE RECORD
-  // ==================================================
   router.delete("/records/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
     const conn = await pool.getConnection();
@@ -252,6 +240,92 @@ export default (pool) => {
       res.status(500).json({ error: "Failed to delete record" });
     } finally {
       conn.release();
+    }
+  });
+
+  // ==================================================
+  // ============== ADOPTION REQUEST ENDPOINTS =========
+  // ==================================================
+
+  // APPROVE REQUEST (FIXED)
+  router.put("/adoption-requests/:id/approve", verifyToken, async (req, res) => {
+    const connection = await pool.getConnection();
+
+    try {
+      const requestId = req.params.id;
+      const staffId = req.user.userId;
+      const { startDate, endDate } = req.body;
+
+      await connection.beginTransaction();
+
+      const [rows] = await connection.query(
+        "SELECT * FROM adoption_request WHERE requestId = ?",
+        [requestId]
+      );
+
+      if (!rows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Request not found" });
+      }
+
+      const request = rows[0];
+
+      if (request.status !== "pending") {
+        await connection.rollback();
+        return res.status(400).json({ error: "Already processed" });
+      }
+
+      if (!startDate) {
+        await connection.rollback();
+        return res.status(400).json({ error: "Start date required" });
+      }
+
+      if (request.adoptionType === "foster" && !endDate) {
+        await connection.rollback();
+        return res.status(400).json({ error: "End date required" });
+      }
+
+      await connection.query(`
+        UPDATE adoption_request
+        SET status='approved', fufilledBy=?
+        WHERE requestId=?
+      `, [staffId, requestId]);
+
+      const [rec] = await connection.query(`
+        INSERT INTO record (petId, recordType, notes, dateOfRecord)
+        VALUES (?, ?, 'Request approved', ?)
+      `, [request.petId, request.adoptionType, startDate]);
+
+      const recordId = rec.insertId;
+
+      // 🔥 REQUIRED parent
+      await connection.query(`
+        INSERT INTO adoption_record (recordId, adopterId, staffId)
+        VALUES (?, ?, ?)
+      `, [recordId, request.submitterId, staffId]);
+
+      // 🔥 child if foster
+      if (request.adoptionType === "foster") {
+        await connection.query(`
+          INSERT INTO foster_record (recordId, status, fosterEndDate)
+          VALUES (?, 'active', ?)
+        `, [recordId, endDate]);
+      } else {
+        await connection.query(`
+          UPDATE pet SET status='Adopted'
+          WHERE petId=?
+        `, [request.petId]);
+      }
+
+      await connection.commit();
+      res.json({ message: "Request approved" });
+
+    } catch (err) {
+      await connection.rollback();
+      console.error(err);
+      res.status(500).json({ error: "Approval failed" });
+    } finally {
+      connection.release();
     }
   });
 

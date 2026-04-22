@@ -4,6 +4,7 @@ import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import AdoptionForm from "./pages/AdoptionForm";
 import PrivateRoute from "./pages/PrivateRoute";
+import ProfileSettings from "./pages/ProfileSettings";
 
 export default function App() {
   return (
@@ -37,6 +38,15 @@ export default function App() {
         element={
           <PrivateRoute>
             <AdoptionForm />
+          </PrivateRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <PrivateRoute>
+            <ProfileSettings />
           </PrivateRoute>
         }
       />

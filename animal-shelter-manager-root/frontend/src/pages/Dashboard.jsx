@@ -48,6 +48,10 @@ export default function Dashboard() {
     navigate("/login");
   };
 
+  const goToProfile = () => {
+    navigate("/profile");
+  };
+
   return (
     <div
       style={{
@@ -70,10 +74,10 @@ export default function Dashboard() {
             {isAdmin
               ? "Superuser Dashboard"
               : role === "staff"
-              ? "Staff Dashboard"
-              : role === "volunteer"
-              ? "Volunteer Dashboard"
-              : "Adopter Dashboard"}
+                ? "Staff Dashboard"
+                : role === "volunteer"
+                  ? "Volunteer Dashboard"
+                  : "Adopter Dashboard"}
           </h1>
 
           <p style={{ margin: 0, color: "#718096" }}>
@@ -81,20 +85,41 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: "10px 18px",
-            borderRadius: "20px",
-            border: "none",
-            backgroundColor: "#ef4444",
-            color: "white",
-            cursor: "pointer",
-            fontWeight: "600",
-          }}
-        >
-          Logout
-        </button>
+        <div style={{ display: "flex", gap: "10px" }}>
+
+          {/* PROFILE BUTTON */}
+          <button
+            onClick={goToProfile}
+            style={{
+              padding: "10px 18px",
+              borderRadius: "20px",
+              border: "2px solid #3b82f6",
+              backgroundColor: "white",
+              color: "#3b82f6",
+              cursor: "pointer",
+              fontWeight: "700",
+            }}
+          >
+            Profile
+          </button>
+
+          {/* LOGOUT BUTTON */}
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: "10px 18px",
+              borderRadius: "20px",
+              border: "none",
+              backgroundColor: "#ef4444",
+              color: "white",
+              cursor: "pointer",
+              fontWeight: "600",
+            }}
+          >
+            Logout
+          </button>
+
+        </div>
       </div>
 
       {/* NAV */}
@@ -167,19 +192,19 @@ export default function Dashboard() {
           role === "staff" ||
           role === "volunteer" ||
           isAdmin) && (
-          <>
-            <button
-              style={
-                activeTab === "gallery"
-                  ? tabStyles.activeBtn
-                  : tabStyles.btn
-              }
-              onClick={() => setActiveTab("gallery")}
-            >
-              Pet Gallery
-            </button>
-          </>
-        )}
+            <>
+              <button
+                style={
+                  activeTab === "gallery"
+                    ? tabStyles.activeBtn
+                    : tabStyles.btn
+                }
+                onClick={() => setActiveTab("gallery")}
+              >
+                Pet Gallery
+              </button>
+            </>
+          )}
 
         {/* ADOPTER ONLY */}
         {role === "adopter" && (

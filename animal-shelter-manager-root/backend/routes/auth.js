@@ -166,5 +166,57 @@ export default (pool) => {
     }
   });
 
+
+  router.put("/users/update-profile", verifyToken, async (req, res) => {
+    const userId = req.user.userId;
+
+    const { fname, lname, currentPassword, newPassword } = req.body;
+
+    try {
+      const [rows] = await pool.query(
+        "SELECT password FROM app_user WHERE userId = ?",
+        [userId]
+      );
+
+      if (!rows.length) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const user = rows[0];
+
+      // 🔐 VERIFY CURRENT PASSWORD
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) {
+        return res.status(401).json({
+          error: "Current password is incorrect",
+        });
+      }
+
+      // 🔄 UPDATE PASSWORD IF PROVIDED
+      let updatedPassword = user.password;
+
+      if (newPassword) {
+        const salt = await bcrypt.genSalt(10);
+        updatedPassword = await bcrypt.hash(newPassword, salt);
+      }
+
+      // 📝 UPDATE USER
+      await pool.query(
+        `
+      UPDATE app_user
+      SET fname = ?, lname = ?, password = ?
+      WHERE userId = ?
+      `,
+        [fname, lname, updatedPassword, userId]
+      );
+
+      res.json({ message: "Profile updated successfully" });
+
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Update failed" });
+    }
+  });
+
   return router;
 };

@@ -13,6 +13,7 @@ export default function AuthPage() {
     lname: "",
     email: "",
     password: "",
+    confirmPassword: "",
   });
 
   const [message, setMessage] = useState("");
@@ -81,6 +82,11 @@ export default function AuthPage() {
   const handleSignup = async () => {
     if (!form.fname || !form.lname || !form.email || !form.password) {
       setMessage("Please fill in all fields");
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setMessage("Passwords do not match");
       return;
     }
 
@@ -176,6 +182,17 @@ export default function AuthPage() {
         />
 
         {!isLogin && (
+          <input
+            name="confirmPassword"
+            type="password"
+            placeholder="Confirm Password"
+            value={form.confirmPassword}
+            onChange={handleChange}
+            style={styles.input}
+          />
+        )}
+
+        {!isLogin && (
           <p style={styles.note}>
             Public registration creates adopter accounts only.
           </p>
@@ -193,8 +210,8 @@ export default function AuthPage() {
           {loading
             ? "Please wait..."
             : isLogin
-            ? "Login"
-            : "Create Account"}
+              ? "Login"
+              : "Create Account"}
         </button>
 
         {message && (
@@ -202,7 +219,7 @@ export default function AuthPage() {
             style={{
               ...styles.message,
               ...(message.toLowerCase().includes("created") ||
-              message.toLowerCase().includes("login successful")
+                message.toLowerCase().includes("login successful")
                 ? styles.success
                 : {}),
             }}

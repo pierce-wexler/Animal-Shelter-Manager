@@ -164,22 +164,12 @@ export default function AdoptionRequestManager() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Submitter ID</th>
-                <th>Submitter Name</th>
-                <th>Blacklisted</th>
-                <th>Adopter Notes</th>
-                <th>Pet ID</th>
-                <th>Pet Name</th>
-                <th>Breed</th>
+                <th>Submitter</th>
+                <th>Pet</th>
                 <th>Type</th>
                 <th>Status</th>
-
-                {/* ✅ NEW COLUMNS */}
-                <th>Start Date</th>
-                <th>End Date</th>
-
-                <th>Staff ID</th>
-                <th>Staff Name</th>
+                <th>Dates</th>
+                <th>Staff</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -195,66 +185,86 @@ export default function AdoptionRequestManager() {
                       background: req.blacklistFlag ? "#fee2e2" : "",
                     }}
                   >
+                    {/* ID */}
                     <td>{req.requestId}</td>
 
-                    <td>{req.submitterId || "—"}</td>
-                    <td>{req.submitterName || "—"}</td>
-
-                    <td
-                      style={{
-                        color: req.blacklistFlag ? "red" : "green",
-                        fontWeight: 600,
-                      }}
-                    >
-                      {req.blacklistFlag ? "Yes" : "No"}
+                    {/* SUBMITTER */}
+                    <td>
+                      <div>
+                        <div>{req.submitterName || "—"}</div>
+                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                          ID: {req.submitterId}
+                        </div>
+                        <div
+                          style={{
+                            color: req.blacklistFlag ? "red" : "green",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {req.blacklistFlag ? "Blacklisted" : "Clear"}
+                        </div>
+                      </div>
                     </td>
 
-                    <td>{req.qualificationNotes || "—"}</td>
+                    {/* PET */}
+                    <td>
+                      <div>
+                        <div>{req.petName || "—"}</div>
+                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                          ID: {req.petId}
+                        </div>
+                        <div>{req.petBreed || "Unknown"}</div>
+                      </div>
+                    </td>
 
-                    <td>{req.petId || "—"}</td>
-                    <td>{req.petName || "—"}</td>
-                    <td>{req.petBreed || "Unknown"}</td>
-
+                    {/* TYPE */}
                     <td>{req.adoptionType}</td>
+
+                    {/* STATUS */}
                     <td>{req.status}</td>
 
-                    {/* ✅ START DATE */}
+                    {/* DATES */}
                     <td>
-                      <input
-                        type="date"
-                        value={dates.startDate || ""}
-                        onChange={(e) =>
-                          handleDateChange(
-                            req.requestId,
-                            "startDate",
-                            e.target.value
-                          )
-                        }
-                      />
-                    </td>
-
-                    {/* ✅ END DATE */}
-                    <td>
-                      {req.adoptionType === "foster" ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
                         <input
                           type="date"
-                          value={dates.endDate || ""}
+                          value={dates.startDate || ""}
                           onChange={(e) =>
                             handleDateChange(
                               req.requestId,
-                              "endDate",
+                              "startDate",
                               e.target.value
                             )
                           }
                         />
-                      ) : (
-                        "—"
-                      )}
+
+                        {req.adoptionType === "foster" && (
+                          <input
+                            type="date"
+                            value={dates.endDate || ""}
+                            onChange={(e) =>
+                              handleDateChange(
+                                req.requestId,
+                                "endDate",
+                                e.target.value
+                              )
+                            }
+                          />
+                        )}
+                      </div>
                     </td>
 
-                    <td>{req.fufilledBy || "—"}</td>
-                    <td>{req.staffName || "—"}</td>
+                    {/* STAFF */}
+                    <td>
+                      <div>
+                        <div>{req.staffName || "—"}</div>
+                        <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                          ID: {req.fufilledBy || "—"}
+                        </div>
+                      </div>
+                    </td>
 
+                    {/* ACTIONS */}
                     <td>
                       {req.status === "pending" ? (
                         <div style={{ display: "flex", gap: "6px" }}>
