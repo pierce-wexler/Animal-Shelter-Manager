@@ -17,7 +17,20 @@ export default function PetCards() {
             },
         })
             .then((res) => res.json())
-            .then(setPets)
+            .then((data) => {
+                const sorted = data.sort((a, b) => {
+                    const aAvailable = a.status?.toLowerCase() === "available";
+                    const bAvailable = b.status?.toLowerCase() === "available";
+
+                    if (aAvailable !== bAvailable) {
+                        return bAvailable - aAvailable;
+                    }
+
+                    return a.name.localeCompare(b.name); // secondary sort
+                });
+
+                setPets(sorted);
+            })
             .catch(console.error);
     }, []);
 

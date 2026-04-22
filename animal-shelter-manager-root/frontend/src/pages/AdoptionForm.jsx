@@ -39,6 +39,13 @@ export default function AdoptionForm() {
   };
 
   // =========================
+  // VALIDATION
+  // =========================
+  const isValid = () => {
+    return form.description.trim().length > 0;
+  };
+
+  // =========================
   // SUBMIT
   // =========================
   const handleSubmit = async () => {
@@ -98,13 +105,16 @@ export default function AdoptionForm() {
           <option value="foster">Foster</option>
         </select>
 
-        <label className="input-label">Why do you want to adopt?</label>
+        <label className="input-label">
+          Why do you want to adopt? (Include preferred dates/times if applicable)
+        </label>
         <textarea
           name="description"
           value={form.description}
           onChange={handleChange}
           className="custom-input"
           rows={4}
+          placeholder="Tell us about your interest in this pet, your living situation, and any preferred dates/times for adoption or fostering..."
         />
 
       </div>
@@ -114,14 +124,14 @@ export default function AdoptionForm() {
         <button
           className="btn btn-create"
           onClick={handleSubmit}
-          disabled={!form.description}
+          disabled={!isValid()}
         >
           Confirm Request
         </button>
 
         <button
           className="btn btn-delete"
-          onClick={() => navigate(-1)} // 👈 GO BACK
+          onClick={() => navigate(-1)}
         >
           Go Back
         </button>

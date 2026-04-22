@@ -8,6 +8,9 @@ export default function AdoptionRequestManager() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
+  // 🔹 NEW: per-row date inputs
+  const [dateInputs, setDateInputs] = useState({});
+
   // =====================================
   // LOAD REQUESTS
   // =====================================
@@ -21,8 +24,6 @@ export default function AdoptionRequestManager() {
 
       const data = await res.json();
 
-      console.log("REQUESTS:", data); // 🔍 debug
-
       if (res.ok) {
         const cleaned = data.map((r) => ({
           ...r,
@@ -33,13 +34,33 @@ export default function AdoptionRequestManager() {
           qualificationNotes: r.qualificationNotes || "—",
         }));
 
-        setRequests(cleaned);
-      } else {
-        console.error("Fetch failed:", data);
-      }
+        const sorted = cleaned.sort((a, b) => {
+          const aPending = a.status?.toLowerCase() === "pending";
+          const bPending = b.status?.toLowerCase() === "pending";
 
+          // Pending first
+          if (aPending !== bPending) {
+            return bPending - aPending;
+          }
+
+          // Then newest first
+          return b.requestId - a.requestId;
+        });
+
+        setRequests(sorted);
+
+        // initialize date inputs for each row
+        const initial = {};
+        cleaned.forEach((r) => {
+          initial[r.requestId] = {
+            startDate: "",
+            endDate: "",
+          };
+        });
+        setDateInputs(initial);
+      }
     } catch (err) {
-      console.error("Fetch error:", err);
+      console.error(err);
     }
   };
 
@@ -48,16 +69,36 @@ export default function AdoptionRequestManager() {
   }, []);
 
   // =====================================
+  // HANDLE DATE CHANGE
+  // =====================================
+  const handleDateChange = (requestId, field, value) => {
+    setDateInputs((prev) => ({
+      ...prev,
+      [requestId]: {
+        ...prev[requestId],
+        [field]: value,
+      },
+    }));
+  };
+
+  // =====================================
   // APPROVE
   // =====================================
   const handleApprove = async (req) => {
+    const dates = dateInputs[req.requestId];
+
     const res = await fetch(
       `/api/adoption-requests/${req.requestId}/approve`,
       {
         method: "PUT",
         headers: {
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({
+          startDate: dates.startDate,
+          endDate: dates.endDate || null,
+        }),
       }
     );
 
@@ -91,20 +132,30 @@ export default function AdoptionRequestManager() {
     if (res.ok) fetchRequests();
   };
 
+  // =====================================
+  // VALIDATION
+  // =====================================
+  const isApproveEnabled = (req) => {
+    const dates = dateInputs[req.requestId];
+    if (!dates || !dates.startDate) return false;
+
+    if (req.adoptionType === "foster" && !dates.endDate) return false;
+
+    return true;
+  };
+
   return (
     <div className="manager-card">
       <h2 className="manager-title">
         Adoption Request Moderation
       </h2>
 
-      {/* STATUS MESSAGE */}
       {message && (
         <div className={`status-message ${isError ? "error" : "success"}`}>
           {message}
         </div>
       )}
 
-      {/* TABLE */}
       <div style={{ marginTop: "20px" }}>
         <h3>Adoption Requests</h3>
 
@@ -113,96 +164,125 @@ export default function AdoptionRequestManager() {
             <thead>
               <tr>
                 <th>ID</th>
-
                 <th>Submitter ID</th>
                 <th>Submitter Name</th>
-
                 <th>Blacklisted</th>
                 <th>Adopter Notes</th>
-
                 <th>Pet ID</th>
                 <th>Pet Name</th>
                 <th>Breed</th>
-
                 <th>Type</th>
                 <th>Status</th>
 
+                {/* ✅ NEW COLUMNS */}
+                <th>Start Date</th>
+                <th>End Date</th>
+
                 <th>Staff ID</th>
                 <th>Staff Name</th>
-
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {requests.map((req) => (
-                <tr
-                  key={req.requestId}
-                  style={{
-                    background: req.blacklistFlag ? "#fee2e2" : ""
-                  }}
-                >
-                  <td>{req.requestId}</td>
+              {requests.map((req) => {
+                const dates = dateInputs[req.requestId] || {};
 
-                  {/* SUBMITTER */}
-                  <td>{req.submitterId || "—"}</td>
-                  <td>{req.submitterName || "—"}</td>
-
-                  {/* BLACKLIST */}
-                  <td
+                return (
+                  <tr
+                    key={req.requestId}
                     style={{
-                      color: req.blacklistFlag ? "red" : "green",
-                      fontWeight: 600
+                      background: req.blacklistFlag ? "#fee2e2" : "",
                     }}
                   >
-                    {req.blacklistFlag ? "Yes" : "No"}
-                  </td>
+                    <td>{req.requestId}</td>
 
-                  {/* NOTES */}
-                  <td>{req.qualificationNotes || "—"}</td>
+                    <td>{req.submitterId || "—"}</td>
+                    <td>{req.submitterName || "—"}</td>
 
-                  {/* PET */}
-                  <td>{req.petId || "—"}</td>
-                  <td>{req.petName || "—"}</td>
-                  <td>{req.petBreed || "Unknown"}</td>
+                    <td
+                      style={{
+                        color: req.blacklistFlag ? "red" : "green",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {req.blacklistFlag ? "Yes" : "No"}
+                    </td>
 
-                  <td>{req.adoptionType}</td>
-                  <td>{req.status}</td>
+                    <td>{req.qualificationNotes || "—"}</td>
 
-                  {/* STAFF */}
-                  <td>{req.fufilledBy || "—"}</td>
-                  <td>{req.staffName || "—"}</td>
+                    <td>{req.petId || "—"}</td>
+                    <td>{req.petName || "—"}</td>
+                    <td>{req.petBreed || "Unknown"}</td>
 
-                  {/* ACTIONS */}
-                  <td>
-                    {req.status === "pending" ? (
-                      <div style={{ display: "flex", gap: "6px" }}>
-                        <button
-                          className="btn btn-update"
-                          onClick={() => handleApprove(req)}
-                          disabled={req.blacklistFlag === 1}
-                          title={
-                            req.blacklistFlag
-                              ? "Cannot approve blacklisted adopter"
-                              : ""
+                    <td>{req.adoptionType}</td>
+                    <td>{req.status}</td>
+
+                    {/* ✅ START DATE */}
+                    <td>
+                      <input
+                        type="date"
+                        value={dates.startDate || ""}
+                        onChange={(e) =>
+                          handleDateChange(
+                            req.requestId,
+                            "startDate",
+                            e.target.value
+                          )
+                        }
+                      />
+                    </td>
+
+                    {/* ✅ END DATE */}
+                    <td>
+                      {req.adoptionType === "foster" ? (
+                        <input
+                          type="date"
+                          value={dates.endDate || ""}
+                          onChange={(e) =>
+                            handleDateChange(
+                              req.requestId,
+                              "endDate",
+                              e.target.value
+                            )
                           }
-                        >
-                          Approve
-                        </button>
+                        />
+                      ) : (
+                        "—"
+                      )}
+                    </td>
 
-                        <button
-                          className="btn btn-delete"
-                          onClick={() => handleDeny(req)}
-                        >
-                          Deny
-                        </button>
-                      </div>
-                    ) : (
-                      <span style={{ color: "#6b7280" }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    <td>{req.fufilledBy || "—"}</td>
+                    <td>{req.staffName || "—"}</td>
+
+                    <td>
+                      {req.status === "pending" ? (
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button
+                            className="btn btn-update"
+                            onClick={() => handleApprove(req)}
+                            disabled={
+                              req.blacklistFlag === 1 ||
+                              !isApproveEnabled(req)
+                            }
+                          >
+                            Approve
+                          </button>
+
+                          <button
+                            className="btn btn-delete"
+                            onClick={() => handleDeny(req)}
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ color: "#6b7280" }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -287,6 +287,12 @@ export default function PetManager() {
     setImageVersion(Date.now());
   };
 
+  const statusMap = {
+    "0": "Vacant",
+    "1": "Occupied",
+    "2": "Full",
+  };
+
   return (
     <div className="multi-manager-container">
       {/* ================= KENNEL SECTION ================= */}
@@ -342,6 +348,7 @@ export default function PetManager() {
           >
             <option value="0">Vacant</option>
             <option value="1">Occupied</option>
+            <option value="2">Full</option>
           </select>
         </div>
 
@@ -388,10 +395,22 @@ export default function PetManager() {
                   >
                     <td>{k.kennelId}</td>
                     <td>{k.roomNo}</td>
-                    <td>
-                      {String(k.occupationStatus) === "1"
-                        ? "Occupied"
-                        : "Vacant"}
+                    <td
+                      style={{
+                        fontWeight: 600,
+                        color:
+                          String(k.occupationStatus) === "0"
+                            ? "green"
+                            : String(k.occupationStatus) === "1"
+                              ? "#f59e0b"
+                              : "red",
+                      }}
+                    >
+                      {{
+                        "0": "Vacant",
+                        "1": "Occupied",
+                        "2": "Full",
+                      }[String(k.occupationStatus)] || "Unknown"}
                     </td>
                   </tr>
                 ))}
@@ -470,7 +489,7 @@ export default function PetManager() {
             <option value="">Select Kennel</option>
             {kennels.map((k) => (
               <option key={k.kennelId} value={k.kennelId}>
-                Kennel {k.kennelId}
+                Kennel {k.kennelId} ({statusMap[k.occupationStatus]})
               </option>
             ))}
           </select>
@@ -490,7 +509,8 @@ export default function PetManager() {
           <label className="input-label">Status</label>
           <select name="status" value={petForm.status} onChange={handlePetChange} className="custom-input">
             <option value="Available">Available</option>
-            <option value="Adopted/Fostered">Adopted/Fostered</option>
+            <option value="Adopted">Adopted</option>
+            <option value="Fostered">Fostered</option>
           </select>
 
           <label className="input-label">Pet Image</label>

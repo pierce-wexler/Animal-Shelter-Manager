@@ -1,4 +1,3 @@
-
 import express from "express";
 import verifyToken from "../middleware/verifyToken.js";
 
@@ -7,339 +6,157 @@ const router = express.Router();
 export default (pool) => {
 
   // ==================================================
-  // GET ALL ADOPTION REQUESTS
-  // For frontend database table view
+  // GET ALL REQUESTS (basic)
   // ==================================================
-  router.get(
-    "/adoption-requests",
-    verifyToken,
-    async (req, res) => {
-      try {
-        const [rows] = await pool.query(`
-          SELECT
-            requestId,
-            submitterId,
-            petId,
-            description,
-            status,
-            fufilledBy,
-            adoptionType
-          FROM adoption_request
-          ORDER BY requestId DESC
-        `);
+  router.get("/adoption-requests", verifyToken, async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT requestId, submitterId, petId, description, status, fufilledBy, adoptionType
+        FROM adoption_request
+        ORDER BY requestId DESC
+      `);
 
-        res.json(rows);
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to fetch requests",
-        });
-      }
+      res.json(rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch requests" });
     }
-  );
+  });
 
-  router.get(
-    "/adoption-requests/full",
-    verifyToken,
-    async (req, res) => {
-      try {
-        const [rows] = await pool.query(`
-          SELECT
-            ar.requestId,
-            ar.submitterId,
-            ar.petId,
-            ar.description,
-            ar.status,
-            ar.fufilledBy,
-            ar.adoptionType,
+  // ==================================================
+  // GET FULL REQUEST VIEW
+  // ==================================================
+  router.get("/adoption-requests/full", verifyToken, async (req, res) => {
+    try {
+      const [rows] = await pool.query(`
+        SELECT
+          ar.requestId,
+          ar.submitterId,
+          ar.petId,
+          ar.description,
+          ar.status,
+          ar.fufilledBy,
+          ar.adoptionType,
 
-            -- SUBMITTER (adopter name)
-            CONCAT(sub.fname, ' ', sub.lname) AS submitterName,
+          CONCAT(sub.fname, ' ', sub.lname) AS submitterName,
+          CONCAT(st.fname, ' ', st.lname) AS staffName,
 
-            -- STAFF (fulfilledBy)
-            CONCAT(st.fname, ' ', st.lname) AS staffName,
+          p.name AS petName,
+          p.breed AS petBreed,
 
-            -- PET
-            p.name AS petName,
-            p.breed AS petBreed,
+          ad.blacklistFlag,
+          ad.qualificationNotes
 
-            -- ADOPTER DETAILS
-            ad.blacklistFlag,
-            ad.qualificationNotes
+        FROM adoption_request ar
+        LEFT JOIN app_user sub ON ar.submitterId = sub.userId
+        LEFT JOIN app_user st ON ar.fufilledBy = st.userId
+        LEFT JOIN adopter ad ON ar.submitterId = ad.userId
+        LEFT JOIN pet p ON ar.petId = p.petId
+        ORDER BY ar.requestId DESC
+      `);
 
-          FROM adoption_request ar
-
-          -- SUBMITTER USER
-          LEFT JOIN app_user sub
-            ON ar.submitterId = sub.userId
-
-          -- STAFF USER
-          LEFT JOIN app_user st
-            ON ar.fufilledBy = st.userId
-
-          -- ADOPTER (extra fields)
-          LEFT JOIN adopter ad
-            ON ar.submitterId = ad.userId
-
-          -- PET
-          LEFT JOIN pet p
-            ON ar.petId = p.petId
-
-          ORDER BY ar.requestId DESC;
-        `);
-
-        res.json(rows);
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to fetch requests",
-        });
-      }
+      res.json(rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to fetch requests" });
     }
-  );
+  });
 
-
+  // ==================================================
+  // GET MY REQUESTS
+  // ==================================================
   router.get("/adoption-requests/my", verifyToken, async (req, res) => {
     try {
       const userId = req.user.userId;
 
-      const [rows] = await pool.query(
-        `
-      SELECT 
-          ar.*,
-          p.name AS petName,
-          p.breed AS petBreed
+      const [rows] = await pool.query(`
+        SELECT ar.*, p.name AS petName, p.breed AS petBreed
         FROM adoption_request ar
         LEFT JOIN pet p ON ar.petId = p.petId
         WHERE ar.submitterId = ?
         ORDER BY ar.requestId DESC
-      `,
-        [userId]
-      );
+      `, [userId]);
 
       res.json(rows);
-
     } catch (err) {
       console.error(err);
-      res.status(500).json({
-        error: "Failed to fetch user requests",
-      });
+      res.status(500).json({ error: "Failed to fetch user requests" });
     }
   });
 
   // ==================================================
   // CREATE REQUEST
   // ==================================================
-  router.post(
-    "/adoption-requests",
-    verifyToken,
-    async (req, res) => {
-      const userId = req.user.userId;
-      const role = req.user.role;
+  router.post("/adoption-requests", verifyToken, async (req, res) => {
+    const userId = req.user.userId;
+    const role = req.user.role;
 
-      const { petId, description, adoptionType } = req.body;
+    const { petId, description, adoptionType } = req.body;
 
-      // -------------------------------
-      // ROLE CHECK
-      // -------------------------------
-      if (role?.toLowerCase() !== "adopter") {
-        return res.status(403).json({
-          error: "Only adopters can submit requests",
-        });
+    if (role?.toLowerCase() !== "adopter") {
+      return res.status(403).json({ error: "Only adopters can submit requests" });
+    }
+
+    if (!petId || !adoptionType) {
+      return res.status(400).json({ error: "petId and adoptionType are required" });
+    }
+
+    try {
+      const [petRows] = await pool.query(
+        "SELECT status FROM pet WHERE petId = ?",
+        [petId]
+      );
+
+      if (petRows.length === 0) {
+        return res.status(404).json({ error: "Pet not found" });
       }
 
-      if (!petId || !adoptionType) {
-        return res.status(400).json({
-          error: "petId and adoptionType are required",
-        });
+      if (petRows[0].status?.toLowerCase() !== "available") {
+        return res.status(400).json({ error: "Pet is not available" });
       }
 
-      try {
-        // -------------------------------
-        // CHECK PET EXISTS + AVAILABLE
-        // -------------------------------
-        const [petRows] = await pool.query(
-          "SELECT status FROM pet WHERE petId = ?",
-          [petId]
-        );
-
-        if (petRows.length === 0) {
-          return res.status(404).json({
-            error: "Pet not found",
-          });
-        }
-
-        if (petRows[0].status?.toLowerCase() !== "available") {
-          return res.status(400).json({
-            error: "Pet is not available",
-          });
-        }
-
-        // -------------------------------
-        // PREVENT DUPLICATES
-        // -------------------------------
-        const [existing] = await pool.query(
-          `SELECT * FROM adoption_request
+      const [existing] = await pool.query(
+        `SELECT * FROM adoption_request
          WHERE submitterId = ? AND petId = ? AND status = 'pending'`,
-          [userId, petId]
-        );
+        [userId, petId]
+      );
 
-        if (existing.length > 0) {
-          return res.status(400).json({
-            error: "You already have a pending request for this pet",
-          });
-        }
+      if (existing.length > 0) {
+        return res.status(400).json({
+          error: "You already have a pending request for this pet",
+        });
+      }
 
-        // -------------------------------
-        // INSERT REQUEST
-        // -------------------------------
-        const [result] = await pool.query(
-          `
+      const [result] = await pool.query(`
         INSERT INTO adoption_request
-        (
-          submitterId,
-          petId,
-          description,
-          status,
-          fufilledBy,
-          adoptionType
-        )
+        (submitterId, petId, description, status, fufilledBy, adoptionType)
         VALUES (?, ?, ?, 'pending', NULL, ?)
-        `,
-          [
-            userId,
-            petId,
-            description || null,
-            adoptionType,
-          ]
-        );
+      `, [userId, petId, description || null, adoptionType]);
 
-        res.status(201).json({
-          message: "Request submitted successfully",
-          requestId: result.insertId,
-        });
+      res.status(201).json({
+        message: "Request submitted successfully",
+        requestId: result.insertId,
+      });
 
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to create request",
-        });
-      }
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to create request" });
     }
-  );
+  });
 
   // ==================================================
-  // UPDATE REQUEST
+  // APPROVE (UPDATED FOR DATES)
   // ==================================================
-  router.put(
-    "/adoption-requests/:id",
-    verifyToken,
-    async (req, res) => {
-      const { id } = req.params;
-
-      const {
-        submitterId,
-        petId,
-        description,
-        status,
-        fufilledBy,
-        adoptionType,
-      } = req.body;
-
-      try {
-        const [result] = await pool.query(
-          `
-          UPDATE adoption_request
-          SET
-            submitterId = ?,
-            petId = ?,
-            description = ?,
-            status = ?,
-            fufilledBy = ?,
-            adoptionType = ?
-          WHERE requestId = ?
-          `,
-          [
-            submitterId,
-            petId,
-            description,
-            status,
-            fufilledBy || null,
-            adoptionType,
-            id,
-          ]
-        );
-
-        if (result.affectedRows === 0) {
-          return res.status(404).json({
-            error: "Request not found",
-          });
-        }
-
-        res.json({
-          message: "Request updated successfully",
-        });
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to update request",
-        });
-      }
-    }
-  );
-
-  // ==================================================
-  // DELETE REQUEST
-  // ==================================================
-  router.delete(
-    "/adoption-requests/:id",
-    verifyToken,
-    async (req, res) => {
-      const { id } = req.params;
-
-      try {
-        const [result] = await pool.query(
-          `
-          DELETE FROM adoption_request
-          WHERE requestId = ?
-          `,
-          [id]
-        );
-
-        if (result.affectedRows === 0) {
-          return res.status(404).json({
-            error: "Request not found",
-          });
-        }
-
-        res.json({
-          message: "Request deleted successfully",
-        });
-
-      } catch (err) {
-        console.error(err);
-        res.status(500).json({
-          error: "Failed to delete request",
-        });
-      }
-    }
-  );
-
   router.put("/adoption-requests/:id/approve", verifyToken, async (req, res) => {
     const connection = await pool.getConnection();
 
     try {
       const requestId = req.params.id;
       const staffId = req.user.userId;
+      const { startDate, endDate } = req.body;
 
       await connection.beginTransaction();
 
-      // =========================
-      // GET REQUEST
-      // =========================
       const [rows] = await connection.query(
         "SELECT * FROM adoption_request WHERE requestId = ?",
         [requestId]
@@ -359,60 +176,64 @@ export default (pool) => {
         });
       }
 
-      // =========================
-      // UPDATE REQUEST
-      // =========================
-      await connection.query(
-        `
-      UPDATE adoption_request
-      SET status = 'approved',
-          fufilledBy = ?
-      WHERE requestId = ?
-      `,
-        [staffId, requestId]
-      );
+      // 🔥 VALIDATION
+      if (!startDate) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "Start date is required",
+        });
+      }
 
-      // =========================
-      // CREATE BASE RECORD
-      // =========================
-      const [recordResult] = await connection.query(
-        `
-      INSERT INTO record
-      (petId, recordType, notes, dateOfRecord)
-      VALUES (?, 'adoption', 'Adoption approved', NOW())
-      `,
-        [request.petId]
-      );
+      if (request.adoptionType === "foster" && !endDate) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "End date required for foster",
+        });
+      }
+
+      // UPDATE REQUEST
+      await connection.query(`
+        UPDATE adoption_request
+        SET status = 'approved',
+            fufilledBy = ?
+        WHERE requestId = ?
+      `, [staffId, requestId]);
+
+      // CREATE RECORD
+      const [recordResult] = await connection.query(`
+        INSERT INTO record (petId, recordType, notes, dateOfRecord)
+        VALUES (?, ?, 'Request approved', ?)
+      `, [
+        request.petId,
+        request.adoptionType === "foster" ? "foster" : "adoption",
+        startDate
+      ]);
 
       const recordId = recordResult.insertId;
 
-      // =========================
-      // CREATE ADOPTION RECORD
-      // =========================
-      await connection.query(
-        `
-      INSERT INTO adoption_record
-      (recordId, adopterId, staffId)
-      VALUES (?, ?, ?)
-      `,
-        [
-          recordId,
-          request.submitterId,
-          staffId
-        ]
-      );
+      // TYPE-SPECIFIC RECORD
+      if (request.adoptionType === "foster") {
+        await connection.query(`
+          INSERT INTO foster_record (recordId, status, fosterEndDate)
+          VALUES (?, 'active', ?)
+        `, [recordId, endDate]);
 
-      // =========================
-      // UPDATE PET STATUS
-      // =========================
-      await connection.query(
-        `
-      UPDATE pet
-      SET status = 'adopted'
-      WHERE petId = ?
-      `,
-        [request.petId]
-      );
+        await connection.query(`
+          UPDATE pet SET status = 'Fostered'
+          WHERE petId = ?
+        `, [request.petId]);
+
+      } else {
+        await connection.query(`
+          INSERT INTO adoption_record (recordId, adopterId, staffId)
+          VALUES (?, ?, ?)
+        `, [recordId, request.submitterId, staffId]);
+
+        await connection.query(`
+          UPDATE pet SET status = 'Adopted'
+          WHERE petId = ?
+        `, [request.petId]);
+      }
 
       await connection.commit();
 
@@ -427,6 +248,9 @@ export default (pool) => {
     }
   });
 
+  // ==================================================
+  // DENY
+  // ==================================================
   router.put("/adoption-requests/:id/deny", verifyToken, async (req, res) => {
     try {
       const requestId = req.params.id;
@@ -449,15 +273,12 @@ export default (pool) => {
         });
       }
 
-      await pool.query(
-        `
-      UPDATE adoption_request
-      SET status = 'denied',
-          fufilledBy = ?
-      WHERE requestId = ?
-      `,
-        [staffId, requestId]
-      );
+      await pool.query(`
+        UPDATE adoption_request
+        SET status = 'denied',
+            fufilledBy = ?
+        WHERE requestId = ?
+      `, [staffId, requestId]);
 
       res.json({ message: "Request denied" });
 
