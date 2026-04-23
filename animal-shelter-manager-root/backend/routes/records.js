@@ -298,23 +298,32 @@ export default (pool) => {
 
       const recordId = rec.insertId;
 
-      // 🔥 REQUIRED parent
+      // REQUIRED parent
       await connection.query(`
         INSERT INTO adoption_record (recordId, adopterId, staffId)
         VALUES (?, ?, ?)
       `, [recordId, request.submitterId, staffId]);
 
-      // 🔥 child if foster
+      // child if foster
       if (request.adoptionType === "foster") {
         await connection.query(`
-          INSERT INTO foster_record (recordId, status, fosterEndDate)
-          VALUES (?, 'active', ?)
-        `, [recordId, endDate]);
+    INSERT INTO foster_record (recordId, status, fosterEndDate)
+    VALUES (?, 'active', ?)
+  `, [recordId, endDate]);
+
+        // FIX: update pet status
+        await connection.query(`
+    UPDATE pet
+    SET status = 'Fostered'
+    WHERE petId = ?
+  `, [request.petId]);
+
       } else {
         await connection.query(`
-          UPDATE pet SET status='Adopted'
-          WHERE petId=?
-        `, [request.petId]);
+    UPDATE pet
+    SET status = 'Adopted'
+    WHERE petId = ?
+  `, [request.petId]);
       }
 
       await connection.commit();
