@@ -10,39 +10,48 @@ export default (pool) => {
   // ==================================================
   // GET ALL USERS (UNIFIED)
   // ==================================================
-  router.get("/admin/users/full", verifyToken, requireAdmin, async (req, res) => {
+  router.get("/admin/users/full", verifyToken, async (req, res) => {
     try {
+      const role = req.user.role;
+
+      // 🚫 BLOCK ADOPTERS
+      if (role === "adopter") {
+        return res.status(403).json({
+          error: "Access denied",
+        });
+      }
+
       const [rows] = await pool.query(`
-        SELECT
-          u.userId,
-          u.fname,
-          u.lname,
-          u.email,
+      SELECT
+        u.userId,
+        u.fname,
+        u.lname,
+        u.email,
 
-          CASE
-            WHEN s.userId IS NOT NULL AND LOWER(u.email) = 'admin@shelter.com'
-              THEN 'admin'
-            WHEN s.userId IS NOT NULL
-              THEN 'staff'
-            WHEN v.userId IS NOT NULL
-              THEN 'volunteer'
-            WHEN a.userId IS NOT NULL
-              THEN 'adopter'
-            ELSE 'unknown'
-          END AS roleType,
+        CASE
+          WHEN s.userId IS NOT NULL AND LOWER(u.email) = 'admin@shelter.com'
+            THEN 'admin'
+          WHEN s.userId IS NOT NULL
+            THEN 'staff'
+          WHEN v.userId IS NOT NULL
+            THEN 'volunteer'
+          WHEN a.userId IS NOT NULL
+            THEN 'adopter'
+          ELSE 'unknown'
+        END AS roleType,
 
-          a.qualificationNotes,
-          a.blacklistFlag,
+        a.qualificationNotes,
+        a.blacklistFlag,
 
-          COALESCE(s.supervisor, v.supervisor) AS supervisor
+        COALESCE(s.supervisor, v.supervisor) AS supervisor
 
-        FROM app_user u
-        LEFT JOIN adopter a ON u.userId = a.userId
-        LEFT JOIN staff s ON u.userId = s.userId
-        LEFT JOIN volunteer v ON u.userId = v.userId
+      FROM app_user u
+      LEFT JOIN adopter a ON u.userId = a.userId
+      LEFT JOIN staff s ON u.userId = s.userId
+      LEFT JOIN volunteer v ON u.userId = v.userId
 
-        ORDER BY u.userId ASC
-      `);
+      ORDER BY u.userId ASC
+    `);
 
       res.json(rows);
 

@@ -36,7 +36,13 @@ export default function Dashboard() {
   // Default tabs by role
   // =======================
   const defaultTab =
-    role === "adopter" ? "gallery" : isAdmin ? "users" : "pets";
+    role === "adopter"
+      ? "gallery"
+      : role === "volunteer"
+        ? "events"
+        : isAdmin
+          ? "users"
+          : "pets";
 
   const [activeTab, setActiveTab] = useState(defaultTab);
 
@@ -253,7 +259,7 @@ export default function Dashboard() {
           )}
 
         {activeTab === "events" &&
-          (role === "staff" || isAdmin) && (
+          (role === "staff" || role === "volunteer" || isAdmin) && (
             <EventManager />
           )}
 
