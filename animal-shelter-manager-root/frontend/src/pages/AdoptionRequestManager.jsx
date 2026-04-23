@@ -167,6 +167,7 @@ export default function AdoptionRequestManager() {
                 <th>Submitter</th>
                 <th>Pet</th>
                 <th>Type</th>
+                <th>Description</th>
                 <th>Status</th>
                 <th>Dates</th>
                 <th>Staff</th>
@@ -251,6 +252,13 @@ export default function AdoptionRequestManager() {
                             }
                           />
                         )}
+                      </div>
+                    </td>
+
+                    {/* DESCRIPTION */}
+                    <td>
+                      <div style={{ maxWidth: "250px", whiteSpace: "normal" }}>
+                        {req.description || "—"}
                       </div>
                     </td>
 
