@@ -40,7 +40,7 @@ export default function Dashboard() {
       ? "gallery"
       : role === "volunteer"
         ? "events"
-        : isAdmin
+        : (isAdmin || role === "staff")
           ? "users"
           : "pets";
 
@@ -142,7 +142,7 @@ export default function Dashboard() {
       {/* NAV */}
       <div style={tabStyles.nav}>
         {/* ADMIN ONLY */}
-        {isAdmin && (
+        {(role === "staff" || isAdmin) && (
           <button
             style={
               activeTab === "users"
@@ -244,9 +244,10 @@ export default function Dashboard() {
 
       {/* CONTENT */}
       <div style={{ marginTop: "20px" }}>
-        {activeTab === "users" && isAdmin && (
-          <UserManager />
-        )}
+        {activeTab === "users" &&
+          (role === "staff" || isAdmin) && (
+            <UserManager />
+          )}
 
         {activeTab === "pets" &&
           (role === "staff" || isAdmin) && (

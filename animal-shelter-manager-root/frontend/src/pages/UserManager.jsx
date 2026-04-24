@@ -1,8 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
+import { jwtDecode } from "jwt-decode"; 
 import "./Manager.css";
 
 export default function UserManager() {
   const token = localStorage.getItem("token");
+
+  // ADDED: role detection
+  const tokenData = token ? jwtDecode(token) : {};
+  const role = tokenData?.role?.toLowerCase();
+  const isAdmin = tokenData?.isAdmin;
 
   const emptyForm = {
     userId: "",
@@ -22,6 +28,8 @@ export default function UserManager() {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+
+  // MODIFIED: lock staff to adopters
   const [viewRole, setViewRole] = useState("adopter");
 
   const fetchUsers = async () => {
@@ -90,6 +98,13 @@ export default function UserManager() {
 
   const handleAction = async (method) => {
     try {
+      // ADDED: enforce restriction
+      if (!isAdmin && role === "staff" && viewRole !== "adopter") {
+        setIsError(true);
+        setMessage("Staff can only manage adopters");
+        return;
+      }
+
       if (method === "DELETE") {
         if (!window.confirm("Delete this user?")) return;
       }
@@ -159,6 +174,9 @@ export default function UserManager() {
     }
   };
 
+  // ✅ ADDED: UI restriction flag
+  const isRestricted = !isAdmin && role === "staff" && viewRole !== "adopter";
+
   return (
     <div className="manager-card">
       <h2 className="manager-title">User + Role Management</h2>
@@ -168,6 +186,9 @@ export default function UserManager() {
       <select
         value={viewRole}
         onChange={(e) => {
+          // block staff switching
+          if (!isAdmin && role === "staff") return;
+
           const newRole = e.target.value;
           setViewRole(newRole);
           setSelectedUserId(null);
@@ -180,9 +201,15 @@ export default function UserManager() {
         className="custom-input"
       >
         <option value="adopter">Adopters</option>
-        <option value="staff">Staff</option>
-        <option value="volunteer">Volunteers</option>
-        <option value="admin">Admins</option>
+
+        {/* ✅ ADDED: only admin can see others */}
+        {isAdmin && (
+          <>
+            <option value="staff">Staff</option>
+            <option value="volunteer">Volunteers</option>
+            <option value="admin">Admins</option>
+          </>
+        )}
       </select>
 
       {/* EDIT MODE */}
@@ -311,7 +338,7 @@ export default function UserManager() {
         <button
           onClick={() => handleAction("POST")}
           className="btn btn-create"
-          disabled={!!selectedUserId}
+          disabled={!!selectedUserId || isRestricted}
         >
           Create
         </button>
@@ -319,7 +346,7 @@ export default function UserManager() {
         <button
           onClick={() => handleAction("PUT")}
           className="btn btn-update"
-          disabled={!selectedUserId}
+          disabled={!selectedUserId || isRestricted}
         >
           Update
         </button>
@@ -327,7 +354,7 @@ export default function UserManager() {
         <button
           onClick={() => handleAction("DELETE")}
           className="btn btn-delete"
-          disabled={!selectedUserId}
+          disabled={!selectedUserId || isRestricted}
         >
           Delete
         </button>

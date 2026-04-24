@@ -165,9 +165,10 @@ export default function AdoptionRequestManager() {
               <tr>
                 <th>ID</th>
                 <th>Submitter</th>
+                <th>Notes</th> {/* ✅ NEW */}
                 <th>Pet</th>
                 <th>Type</th>
-                <th>Description</th>
+                <th>Request Description</th>
                 <th>Status</th>
                 <th>Dates</th>
                 <th>Staff</th>
@@ -207,6 +208,21 @@ export default function AdoptionRequestManager() {
                       </div>
                     </td>
 
+                    {/* NOTES */}
+                    <td>
+                      <div
+                        style={{
+                          maxWidth: "220px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={req.qualificationNotes}
+                      >
+                        {req.qualificationNotes || "—"}
+                      </div>
+                    </td>
+
                     {/* PET */}
                     <td>
                       <div>
@@ -220,6 +236,13 @@ export default function AdoptionRequestManager() {
 
                     {/* TYPE */}
                     <td>{req.adoptionType}</td>
+
+                    {/* DESCRIPTION */}
+                    <td>
+                      <div style={{ maxWidth: "250px", whiteSpace: "normal" }}>
+                        {req.description || "—"}
+                      </div>
+                    </td>
 
                     {/* STATUS */}
                     <td>{req.status}</td>
@@ -252,13 +275,6 @@ export default function AdoptionRequestManager() {
                             }
                           />
                         )}
-                      </div>
-                    </td>
-
-                    {/* DESCRIPTION */}
-                    <td>
-                      <div style={{ maxWidth: "250px", whiteSpace: "normal" }}>
-                        {req.description || "—"}
                       </div>
                     </td>
 

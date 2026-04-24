@@ -64,7 +64,7 @@ export default (pool) => {
   // ==================================================
   // CREATE USER
   // ==================================================
-  router.post("/admin/users", verifyToken, requireAdmin, async (req, res) => {
+  router.post("/admin/users", verifyToken, async (req, res) => {
     const {
       fname,
       lname,
@@ -75,6 +75,21 @@ export default (pool) => {
       blacklistFlag,
       supervisor
     } = req.body;
+
+    const role = req.user.role;
+    const isAdmin = req.user.isAdmin;
+
+    // 🔐 ACCESS CONTROL
+    if (!isAdmin && role !== "staff") {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // 🔒 STAFF RESTRICTION
+    if (role === "staff" && roleType !== "adopter") {
+      return res.status(403).json({
+        error: "Staff can only create adopters"
+      });
+    }
 
     if (!fname || !lname || !email || !password || !roleType) {
       return res.status(400).json({ error: "Missing required fields" });
@@ -89,7 +104,7 @@ export default (pool) => {
 
       const [result] = await conn.query(
         `INSERT INTO app_user (fname, lname, email, passwordHash)
-         VALUES (?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?)`,
         [fname, lname, email, hash]
       );
 
@@ -124,7 +139,7 @@ export default (pool) => {
   // ==================================================
   // UPDATE USER
   // ==================================================
-  router.put("/admin/users/:id", verifyToken, requireAdmin, async (req, res) => {
+  router.put("/admin/users/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
 
     const {
@@ -132,18 +147,29 @@ export default (pool) => {
       lname,
       email,
       password,
-      roleType,
       qualificationNotes,
       blacklistFlag,
       supervisor
     } = req.body;
+
+    const role = req.user.role;
+    const isAdmin = req.user.isAdmin;
+
+    // =========================
+    // ACCESS CONTROL
+    // =========================
+    if (!isAdmin && role !== "staff") {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     const conn = await pool.getConnection();
 
     try {
       await conn.beginTransaction();
 
-      // --- UPDATE BASE USER ---
+      // =========================
+      // UPDATE BASE USER
+      // =========================
       const fields = [];
       const values = [];
 
@@ -165,16 +191,59 @@ export default (pool) => {
         );
       }
 
-      // --- RESET ROLE ---
-      await clearRoles(conn, id);
+      // =========================
+      // DETERMINE USER ROLE
+      // =========================
+      const [rows] = await conn.query(`
+      SELECT
+        CASE
+          WHEN s.userId IS NOT NULL THEN 'staff'
+          WHEN v.userId IS NOT NULL THEN 'volunteer'
+          WHEN a.userId IS NOT NULL THEN 'adopter'
+          ELSE 'unknown'
+        END AS roleType
+      FROM app_user u
+      LEFT JOIN adopter a ON u.userId = a.userId
+      LEFT JOIN staff s ON u.userId = s.userId
+      LEFT JOIN volunteer v ON u.userId = v.userId
+      WHERE u.userId = ?
+    `, [id]);
 
-      // --- INSERT NEW ROLE ---
-      await insertRole(conn, id, {
-        roleType,
-        qualificationNotes,
-        blacklistFlag,
-        supervisor
-      });
+      const roleType = rows[0]?.roleType;
+
+      // =========================
+      // UPDATE ROLE-SPECIFIC TABLE
+      // =========================
+      if (roleType === "adopter") {
+        await conn.query(
+          `
+        UPDATE adopter
+        SET qualificationNotes = ?, blacklistFlag = ?
+        WHERE userId = ?
+        `,
+          [qualificationNotes || "", blacklistFlag || 0, id]
+        );
+
+      } else if (roleType === "staff" || roleType === "admin") {
+        await conn.query(
+          `
+        UPDATE staff
+        SET supervisor = ?
+        WHERE userId = ?
+        `,
+          [supervisor || null, id]
+        );
+
+      } else if (roleType === "volunteer") {
+        await conn.query(
+          `
+        UPDATE volunteer
+        SET supervisor = ?
+        WHERE userId = ?
+        `,
+          [supervisor || null, id]
+        );
+      }
 
       await conn.commit();
 
@@ -193,24 +262,61 @@ export default (pool) => {
   // ==================================================
   // DELETE USER
   // ==================================================
-  router.delete("/admin/users/:id", verifyToken, requireAdmin, async (req, res) => {
+  router.delete("/admin/users/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
+    const role = req.user.role;
+    const isAdmin = req.user.isAdmin;
+
     const conn = await pool.getConnection();
 
     try {
       await conn.beginTransaction();
 
-      await clearRoles(conn, id);
+      // 🔍 Get user role first
+      const [rows] = await conn.query(`
+      SELECT
+        CASE
+          WHEN s.userId IS NOT NULL AND LOWER(u.email) = 'admin@shelter.com'
+            THEN 'admin'
+          WHEN s.userId IS NOT NULL THEN 'staff'
+          WHEN v.userId IS NOT NULL THEN 'volunteer'
+          WHEN a.userId IS NOT NULL THEN 'adopter'
+          ELSE 'unknown'
+        END AS roleType
+      FROM app_user u
+      LEFT JOIN adopter a ON u.userId = a.userId
+      LEFT JOIN staff s ON u.userId = s.userId
+      LEFT JOIN volunteer v ON u.userId = v.userId
+      WHERE u.userId = ?
+    `, [id]);
 
-      const [result] = await conn.query(
-        "DELETE FROM app_user WHERE userId = ?",
-        [id]
-      );
-
-      if (result.affectedRows === 0) {
+      if (!rows.length) {
         await conn.rollback();
         return res.status(404).json({ error: "User not found" });
       }
+
+      const targetRole = rows[0].roleType;
+
+      // 🔐 ACCESS CONTROL
+      if (!isAdmin && role !== "staff") {
+        await conn.rollback();
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // 🔒 STAFF RESTRICTION
+      if (role === "staff" && targetRole !== "adopter") {
+        await conn.rollback();
+        return res.status(403).json({
+          error: "Staff can only delete adopters"
+        });
+      }
+
+      await clearRoles(conn, id);
+
+      await conn.query(
+        "DELETE FROM app_user WHERE userId = ?",
+        [id]
+      );
 
       await conn.commit();
 
