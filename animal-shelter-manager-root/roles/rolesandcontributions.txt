@@ -1,0 +1,29 @@
+Placeholder for roles folderPierce Wexler:
+The role I fulfilled on the team was primarily the practical implementation of our design into our selected tech stack. 
+Throughout the phases I kept my contributions to our design and schema with the practical application in mind (foreign keys for data relations, 
+certain columns useful for frontend display, etc.). During the later phases I worked primarily on setting up the db schema in MySQL via workbench, 
+setting up the GitHub repo, creating and implementing the frontend via React JS, and creating and implementing the backend business logic 
+via Node.js (Express). Key application contributions include the user authentication system (makes use of only storing an encrypted password 
+hash, supports password change, JWT signing and verifying, and protected endpoints.), endpoints related to CRUD operations (including complex 
+joins for frontend data display), and overall user experience/flow (update/delete via table system, image support, etc.). I made edits and 
+contributions to this report, mainly focusing on the screenshots of the running application and their descriptions as well as the user auth 
+explanations. 
+
+Abhigna Koochana:
+I helped develop the initial design of our project as well as brainstorming ideas. Once finalized, I worked on refining the concept to make 
+sure it aligns with the project goals. I helped plan out  the system structure, including identifying users, entities, and relationships. 
+In addition, I contributed to the development of our schema and ER diagrams. I also contributed to the written documentation throughout each 
+stage of the project as well as the video submission for one of the phases, ensuring that our initial demo was clear and encompassing. 
+
+Zara Kidwell:
+During the initial phases of this project, I helped design our relational database schema, including deciding which attributes each 
+entity would have and the relationships between them. I also contributed to the initial written reports. Once we began developing our 
+interface, I contributed to implementing the core CRUD operations to connect our Node.js backend with our MySQL database. Additionally, 
+I helped redesign our GUI to improve the user experience and ensure the interface is intuitive and visually cohesive.
+
+Timothy Kim:
+My role on the team was helping develop the initial structure of the application and finalizing the written reports for each stage of 
+the project. Much of my contribution focused on planning and documentation. On the planning side, I helped shape the early direction of 
+the Animal Shelter Manager by developing the initial project idea, thinking through how the shelter workflow should be represented, and 
+helping map out the relationships between users, entities, and system functions. This included contributing to the early diagrams and 
+written structure that guided how 
