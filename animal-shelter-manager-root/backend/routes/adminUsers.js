@@ -28,7 +28,7 @@ export default (pool) => {
         u.email,
 
         CASE
-          WHEN s.userId IS NOT NULL 
+          WHEN s.userId IS NOT NULL AND LOWER(u.email) = 'admin@shelter.com'
             THEN 'admin'
           WHEN s.userId IS NOT NULL
             THEN 'staff'
