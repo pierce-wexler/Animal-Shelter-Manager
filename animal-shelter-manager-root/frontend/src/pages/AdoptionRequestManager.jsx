@@ -165,7 +165,7 @@ export default function AdoptionRequestManager() {
               <tr>
                 <th>ID</th>
                 <th>Submitter</th>
-                <th>Notes</th> {/* ✅ NEW */}
+                <th>Notes</th>
                 <th>Pet</th>
                 <th>Type</th>
                 <th>Request Description</th>

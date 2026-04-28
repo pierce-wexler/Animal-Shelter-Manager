@@ -30,36 +30,43 @@ export default (pool) => {
     try {
       const [rows] = await pool.query(`
         SELECT
-          r.recordId,
-          r.petId,
-          r.dateOfRecord,
-          r.recordType,
-          r.notes,
+        r.recordId,
+        r.petId,
+        r.dateOfRecord,
+        r.recordType,
+        r.notes,
 
-          p.name AS petName,
-          p.breed AS petBreed,
+        p.name AS petName,
+        p.breed AS petBreed,
 
-          mr.institution,
-          mr.vet,
+        mr.institution,
+        mr.vet,
 
-          ar.adopterId,
-          ar.staffId,
+        ar.adopterId,
+        ar.staffId,
 
-          CONCAT(au.fname, ' ', au.lname) AS adopterName,
-          CONCAT(su.fname, ' ', su.lname) AS staffName,
+        CASE 
+          WHEN ar.adopterId IS NOT NULL THEN CONCAT(au.fname, ' ', au.lname)
+          ELSE NULL
+        END AS adopterName,
 
-          fr.status AS fosterStatus,
-          fr.fosterEndDate
+        CASE 
+          WHEN ar.staffId IS NOT NULL THEN CONCAT(su.fname, ' ', su.lname)
+          ELSE NULL
+        END AS staffName,
 
-        FROM record r
-        LEFT JOIN pet p ON r.petId = p.petId
-        LEFT JOIN medical_record mr ON r.recordId = mr.recordId
-        LEFT JOIN adoption_record ar ON r.recordId = ar.recordId
-        LEFT JOIN foster_record fr ON r.recordId = fr.recordId
-        LEFT JOIN app_user au ON ar.adopterId = au.userId
-        LEFT JOIN app_user su ON ar.staffId = su.userId
+        fr.status AS fosterStatus,
+        fr.fosterEndDate
 
-        ORDER BY r.recordId DESC
+      FROM record r
+      LEFT JOIN pet p ON r.petId = p.petId
+      LEFT JOIN medical_record mr ON r.recordId = mr.recordId
+      LEFT JOIN adoption_record ar ON r.recordId = ar.recordId
+      LEFT JOIN foster_record fr ON r.recordId = fr.recordId
+      LEFT JOIN app_user au ON ar.adopterId = au.userId
+      LEFT JOIN app_user su ON ar.staffId = su.userId
+
+      ORDER BY r.recordId DESC;
       `);
 
       res.json(rows);

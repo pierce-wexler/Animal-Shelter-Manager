@@ -10,7 +10,7 @@ export default function AdoptionForm() {
   const [pet, setPet] = useState(null);
   const [form, setForm] = useState({
     description: "",
-    adoptionType: "permanent",
+    adoptionType: "adoption",
   });
 
   const [message, setMessage] = useState("");
@@ -101,7 +101,7 @@ export default function AdoptionForm() {
           onChange={handleChange}
           className="custom-input"
         >
-          <option value="permanent">Permanent</option>
+          <option value="adoption">Adoption</option>
           <option value="foster">Foster</option>
         </select>
 

@@ -14,7 +14,6 @@ export default (pool) => {
     try {
       const role = req.user.role;
 
-      // 🚫 BLOCK ADOPTERS
       if (role === "adopter") {
         return res.status(403).json({
           error: "Access denied",
@@ -29,7 +28,7 @@ export default (pool) => {
         u.email,
 
         CASE
-          WHEN s.userId IS NOT NULL AND LOWER(u.email) = 'admin@shelter.com'
+          WHEN s.userId IS NOT NULL 
             THEN 'admin'
           WHEN s.userId IS NOT NULL
             THEN 'staff'
@@ -85,7 +84,7 @@ export default (pool) => {
     }
 
     // 🔒 STAFF RESTRICTION
-    if (role === "staff" && roleType !== "adopter") {
+    if (role === "staff" && !isAdmin && roleType !== "adopter") {
       return res.status(403).json({
         error: "Staff can only create adopters"
       });
@@ -304,7 +303,7 @@ export default (pool) => {
       }
 
       // 🔒 STAFF RESTRICTION
-      if (role === "staff" && targetRole !== "adopter") {
+      if (role === "staff" && !isAdmin && targetRole !== "adopter") {
         await conn.rollback();
         return res.status(403).json({
           error: "Staff can only delete adopters"
